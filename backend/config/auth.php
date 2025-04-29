@@ -40,6 +40,11 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+        'api' => [
+            'driver' => 'jwt',
+            'provider' => 'users',
+            // 'hash' => false, // chỉ để true nếu bạn muốn sử dụng hashed password
+        ],
     ],
 
     /*

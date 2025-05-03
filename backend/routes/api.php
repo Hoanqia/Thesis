@@ -3,6 +3,8 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\BrandController;
+
 // use app\Http\Middleware\RoleMiddleware;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
@@ -33,7 +35,18 @@ Route::prefix('auth')->group(function () {
 Route::middleware(['auth:api','role:admin'])->group(function () {
 
     Route::prefix('admin')->group(function () {
+        Route::patch('/categories/{slug}',[CategoryController::class,'edit']);
+        Route::delete('/categories/{slug}',[CategoryController::class,'destroy']);
+        Route::get('/categories/{slug}',[CategoryController::class,'get']);
         Route::post('/categories', [CategoryController::class, 'store']);
         Route::get('/categories', [CategoryController::class, 'getAll']);
+        
+
+        Route::delete('/brands/{id}',[BrandController::class,'destroy']);
+        Route::patch('/brands/{id}',[BrandController::class,'edit']);
+        Route::get('/brands/{id}',[BrandController::class,'get']);
+        Route::post('/brands',[BrandController::class,'store']);
+        Route::get('/brands',[BrandController::class,'getAll']);
+        
     });
 });

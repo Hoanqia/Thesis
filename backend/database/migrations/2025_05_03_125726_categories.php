@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('categories', function (Blueprint $table) {
             $table->id(); // BIGINT + AUTO_INCREMENT + PRIMARY KEY
             $table->string('name', 255);
+            $table->string('slug')->unique();
             $table->foreignId('id_parent')
                 ->nullable()
                 ->constrained('categories')

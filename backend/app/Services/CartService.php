@@ -18,7 +18,7 @@ class CartService
     public function getCartWithItems()
     {
         // Lấy giỏ hàng của người dùng kèm các item trong giỏ hàng
-        return Cart::with('items.product')->where('user_id', Auth::user()->id)->first();
+        return Cart::with('cart_items.product')->where('user_id', Auth::user()->id)->first();
     }
 
     /**

@@ -9,14 +9,17 @@ use App\Exceptions\ApiExceptionHandler;
 class CartController extends Controller
 {
     protected $cartService;
-
+    public function __construct(CartService $cartService)
+    {
+        $this->cartService = $cartService;
+    }
     public function getCart()
     {
         try {
             $cart = $this->cartService->getCartWithItems();
 
             return response()->json([
-                'message' => !$cart || $cart->items->isEmpty() ? 'Giỏ hàng trống' : 'Lấy giỏ hàng thành công',
+                'message' => !$cart || $cart->cart_items->isEmpty() ? 'Giỏ hàng trống' : 'Lấy giỏ hàng thành công',
                 'status' => 'success',
                 'data' => $cart ?? [],
             ]);

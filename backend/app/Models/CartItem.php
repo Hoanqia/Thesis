@@ -15,4 +15,11 @@ class CartItem extends Model
         'expires_at',
     ];
     protected $table = 'cart_items';
+
+    public function product(){
+        return $this->belongsTo(Product::class,'product_id');
+    }
+    public function cart(){
+        return $this->belongsTo(Cart::class,'cart_id');
+    }
 }

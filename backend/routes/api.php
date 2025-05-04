@@ -5,6 +5,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\CartController;
 
 // use app\Http\Middleware\RoleMiddleware;
 use Illuminate\Http\Request;
@@ -33,23 +34,31 @@ Route::prefix('auth')->group(function () {
 });
 
 
-Route::middleware(['auth:api','role:admin'])->group(function () {
-
-    Route::prefix('admin')->group(function () {
-        Route::patch('/categories/{slug}',[CategoryController::class,'edit']);
-        Route::delete('/categories/{slug}',[CategoryController::class,'destroy']);
-        Route::get('/categories/{slug}',[CategoryController::class,'get']);
-        Route::post('/categories', [CategoryController::class, 'store']);
-        Route::get('/categories', [CategoryController::class, 'getAll']);
-        
-
-        Route::delete('/brands/{slug}',[BrandController::class,'destroy']);
-        Route::patch('/brands/{slug}',[BrandController::class,'edit']);
-        Route::get('/brands/{slug}',[BrandController::class,'get']);
-        Route::post('/brands',[BrandController::class,'store']);
-        Route::get('/brands',[BrandController::class,'getAll']);
-        
+Route::middleware(['auth:api'])->group(function () {
+    Route::middleware('role:admin')->group(function (){
+        Route::prefix('admin')->group(function () {
+            Route::patch('/categories/{slug}',[CategoryController::class,'edit']);
+            Route::delete('/categories/{slug}',[CategoryController::class,'destroy']);
+            Route::get('/categories/{slug}',[CategoryController::class,'get']);
+            Route::post('/categories', [CategoryController::class, 'store']);
+            Route::get('/categories', [CategoryController::class, 'getAll']);
+            
+    
+            Route::delete('/brands/{slug}',[BrandController::class,'destroy']);
+            Route::patch('/brands/{slug}',[BrandController::class,'edit']);
+            Route::get('/brands/{slug}',[BrandController::class,'get']);
+            Route::post('/brands',[BrandController::class,'store']);
+            Route::get('/brands',[BrandController::class,'getAll']);
+            
+        });
     });
-});
+    Route::middleware('role:customer')->group(function (){
+        Route::prefix('customer')->group(function (){
+            Route::post('/cart',[CartController::class,'addToCart']);
+            Route::get('/cart',[CartController::class,'getCart']);
+        });
+    });
+    
+}); // ngoặc xác thực api
 Route::get('/products/{slug}',[ProductController::class,'get']);
 Route::get('/products',[ProductController::class,'getAll']);

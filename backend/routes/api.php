@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\BrandController;
+use App\Http\Controllers\ProductController;
 
 // use app\Http\Middleware\RoleMiddleware;
 use Illuminate\Http\Request;
@@ -42,11 +43,13 @@ Route::middleware(['auth:api','role:admin'])->group(function () {
         Route::get('/categories', [CategoryController::class, 'getAll']);
         
 
-        Route::delete('/brands/{id}',[BrandController::class,'destroy']);
-        Route::patch('/brands/{id}',[BrandController::class,'edit']);
-        Route::get('/brands/{id}',[BrandController::class,'get']);
+        Route::delete('/brands/{slug}',[BrandController::class,'destroy']);
+        Route::patch('/brands/{slug}',[BrandController::class,'edit']);
+        Route::get('/brands/{slug}',[BrandController::class,'get']);
         Route::post('/brands',[BrandController::class,'store']);
         Route::get('/brands',[BrandController::class,'getAll']);
         
     });
 });
+Route::get('/products/{slug}',[ProductController::class,'get']);
+Route::get('/products',[ProductController::class,'getAll']);

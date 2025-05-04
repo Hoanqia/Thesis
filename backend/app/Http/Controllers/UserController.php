@@ -8,11 +8,19 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Auth\Events\Registered;
 use App\Exceptions\ApiExceptionHandler;
-
+use App\Services\CartService;
 use Tymon\JWTAuth\Facades\JWTAuth;
 use Tymon\JWTAuth\Exceptions\JWTException;
 class UserController extends Controller
-{
+{   
+
+    protected $cartService;
+
+    // Tiêm CartService qua constructor
+    public function __construct(CartService $cartService)
+    {
+        $this->cartService = $cartService;
+    }
     // Đăng ký
     public function register(Request $request)
     {
@@ -76,6 +84,9 @@ class UserController extends Controller
 
     // Lấy thông tin người dùng đã đăng nhập
     $user = Auth::user();
+    if($user->role === "customer"){
+       $cart =  $this->cartService->getOrCreateCart();
+    }
     Log::info('Auth attempt success', ['user_id' => $user->id]);
 
     // Tạo lại refresh token

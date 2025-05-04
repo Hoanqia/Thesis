@@ -6,22 +6,35 @@ use Illuminate\Http\Request;
 use App\Exceptions\ApiExceptionHandler;
 use Illuminate\Support\Facades\Log;
 use App\Models\Brand;
+use Illuminate\Support\Str;
+use App\Services\SlugService;
 
 class BrandController extends Controller
 {
-    public function store(Request $request){
+   
+
+    public function store(Request $request)
+    {
         try {
+            // Validate dữ liệu đầu vào
             $validateData = $request->validate([
                 'name' => 'required|string',
             ]);
-            $brand = Brand::create([
-                'name' => $validateData['name'],
-            ]);
+            $brand = new Brand();
+            $brand->name = $validateData['name'];
+    
+            $brand->slug = SlugService::createSlug($validateData['name'], Brand::class);
+
+            $brand->status = $request->status ?? 1;
+    
+            $brand->save();
+
             return response()->json([
                 'message' => 'Thêm dữ liệu thành công',
                 'status' => 'success',
-            ],201);
-        }catch(\Exception $e){
+                'data' => $brand,
+            ], 201);
+        } catch (\Exception $e) {
             return ApiExceptionHandler::handleException($e);
         }
     }
@@ -44,9 +57,9 @@ class BrandController extends Controller
             return ApiExceptionHandler::handleException($e);
         }
     }
-    public function get($id){
+    public function get($slug){
         try {
-            $brand = Brand::find($id);
+            $brand = Brand::where('slug',$slug)->first();
             if(!$brand){
                 return response()->json([
                     'message' => 'Không tìm thấy dữ liệu',
@@ -62,9 +75,9 @@ class BrandController extends Controller
             return ApiExceptionHandler::handleException($e);
         }
     }
-    public function edit($id,Request $request){
+    public function edit($slug,Request $request){
         try {
-            $brand = Brand::find($id);
+            $brand = Brand::where('slug',$slug)->first();
             if(!$brand){
                 return response()->json([
                     'message' => 'Không tìm thấy dữ liệu',
@@ -75,6 +88,9 @@ class BrandController extends Controller
                 'name' => 'string',
                 'status' => 'integer',
             ]);
+            if(isset($validateData['name']) && $validateData['name'] !== $brand->name){
+               $validateData['slug'] = SlugService::createSlug($validateData['name'],Brand::class);
+            }
             $brand->update($validateData);
             return response()->json([
                 'message' => 'Cập nhật thông tin thành công',
@@ -84,9 +100,9 @@ class BrandController extends Controller
             return ApiExceptionHandler::handleException($e);
         }
     }
-    public function destroy($id){
+    public function destroy($slug){
         try {
-            $brand = Brand::find($id);
+            $brand = Brand::where('slug',$slug)->first();
             if(!$brand){
                 return response()->json([
                     'message' => 'Không tìm thấy dữ liệu',

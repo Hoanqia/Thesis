@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Category;
 use App\Exceptions\ApiExceptionHandler;
 use Illuminate\Support\Str;
+use App\Services\SlugService;
 
 class CategoryController extends Controller
 {
@@ -21,13 +22,7 @@ class CategoryController extends Controller
             
             $category = new Category();
             $category->name = $validatedData['name'];
-            $slug = Str::slug($validatedData['name']);
-            $i = 1; 
-            $baseSlug = $slug;
-            while(Category::where('slug',$slug)->exists()){
-                $slug = $baseSlug . "-" . $i++;
-            }
-            $category->slug = $slug;
+            $category->slug = SlugService::createSlug($validatedData['name'],Category::class);
             $category->id_parent = $validatedData['id_parent'] ?? null;
             $category->status = $validatedData['status'] ?? 1;
             $ex = $category->save();
@@ -91,10 +86,13 @@ class CategoryController extends Controller
                 ], 404);
             }
             $validatedData = $request->validate([
-                'name' => 'required|string',
+                'name' => 'string',
                 'id_parent' => 'integer|nullable',
                 'status' => 'nullable|boolean',
             ]);
+            if(isset($validatedData['name']) && $validatedData['name'] !== $category->name){
+                $validatedData['slug'] = SlugService::createSlug($validatedData['name'],Category::class);
+            }
             $category->update($validatedData);
             return response()->json([
                 'message' => 'Cập nhật thành công',

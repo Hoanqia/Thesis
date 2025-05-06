@@ -16,13 +16,24 @@ class CartController extends Controller
     public function getCart()
     {
         try {
-            $cart = $this->cartService->getCartWithItems();
-
-            return response()->json([
-                'message' => !$cart || $cart->cart_items->isEmpty() ? 'Giỏ hàng trống' : 'Lấy giỏ hàng thành công',
-                'status' => 'success',
-                'data' => $cart ?? [],
-            ]);
+            $cartData = $this->cartService->getCartWithItems();
+            // $total_price = 0;
+            // if($cart && $cart->cart_items){
+            //     foreach($cart->cart_items as $cartItem){
+            //         $product = $cartItem->product;
+            //         if($product && $product->status === 'active'){
+            //             $total_price +=  $product->price *  $cartItem->quantity;
+            //         }
+            //     }
+            // }
+            if($cartData){
+                return response()->json([
+                    'message' => !$cartData || $cartData['cart']->cart_items->isEmpty() ? 'Giỏ hàng trống' : 'Lấy giỏ hàng thành công',
+                    'status' => 'success',
+                    'data' => $cartData['cart'] ?? [],
+                    'total_price' => $cartData['total_price'],
+                ]);
+            }
         } catch (\Exception $e) {
             return ApiExceptionHandler::handleException($e);
         }

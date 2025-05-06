@@ -18,7 +18,26 @@ class CartService
     public function getCartWithItems()
     {
         // Lấy giỏ hàng của người dùng kèm các item trong giỏ hàng
-        return Cart::with('cart_items.product')->where('user_id', Auth::user()->id)->first();
+       $cart = Cart::with(['cart_items.product' => function($query){
+            $query->select('id','name');},
+            'cart_items' => function($query){
+                $query->select('id','cart_id','product_id','quantity','price_at_time');
+            }])
+            ->select('id','user_id')
+            ->where('user_id', Auth::user()->id)
+            ->first();
+            if ($cart) {
+                // Tính tổng tiền trong giỏ hàng
+                $total = $cart->cart_items->sum(function ($item) {
+                    return $item->quantity * $item->price_at_time; // Tính tiền cho mỗi item
+                });
+    
+                return [
+                    'cart' => $cart,
+                    'total_price' => $total
+                ];
+            }
+        return null;
     }
 
     /**
@@ -58,7 +77,7 @@ class CartService
             $cartItem->save();
         } else {
             // Nếu chưa có sản phẩm trong giỏ hàng, thêm mới sản phẩm vào giỏ
-            $cart->items()->create([
+            $cart->cart_items()->create([
                 'product_id' => $productId,
                 'quantity' => $quantity,
                 'price_at_time' => $product->price,

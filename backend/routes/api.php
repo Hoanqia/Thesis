@@ -54,8 +54,11 @@ Route::middleware(['auth:api'])->group(function () {
     });
     Route::middleware('role:customer')->group(function (){
         Route::prefix('customer')->group(function (){
+            Route::delete('/cart/{itemId}',[CartController::class,'removeItem']);
+            Route::patch('/cart/{itemId}',[CartController::class,'updateItem']);
             Route::post('/cart',[CartController::class,'addToCart']);
             Route::get('/cart',[CartController::class,'getCart']);
+            Route::delete('/cart',[CartController::class,'clearCart']);
         });
     });
     

@@ -128,7 +128,7 @@ class CartService
         // Lấy giỏ hàng của người dùng hiện tại và xoá tất cả các item
         $cart = Cart::where('user_id', Auth::user()->id)->first();
         if ($cart) {
-            $cart->items()->delete();
+            $cart->cart_items()->delete();
         }
     }
 }

@@ -86,13 +86,21 @@ class CustomerOrderService {
 
         return $order;
     }
-    public function markAsPaid($orderId){
-        $order = Auth::user()->orders()->findOrFail($orderId);
+    public function confirmReceived($orderId){
+        $user = Auth::user();
+        $order = $user->orders()->where('status', 'delivering')->findOrFail($orderId);
 
-        $order->update(['is_paid' => true]);
+        $updateData = ['status' => 'completed'];
+
+        if ($order->payment_method === 'cod') {
+            $updateData['is_paid'] = true;
+        }
+
+        $order->update($updateData);
 
         return $order;
     }
+    
 
 
 

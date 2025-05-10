@@ -20,4 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withCommands([
         CleanExpiredReservedStocks::class,
     ])
+    ->withSchedule(function (Schedule $schedule){
+        $schedule->command(CleanExpiredReservedStocks::class)->everyFiveMinutes(); 
+    })
     ->create();

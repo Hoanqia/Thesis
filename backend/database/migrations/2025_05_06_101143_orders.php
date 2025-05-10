@@ -26,7 +26,7 @@ return new class extends Migration
             $table->decimal('total_price', 10, 2);
             $table->decimal('grand_total', 10, 2);
 
-            $table->enum('status', ['pending', 'shipping', 'completed', 'canceled'])->default('pending');
+            $table->enum('status', ['pending','confirmed','shipping', 'completed', 'canceled'])->default('pending');
             $table->enum('payment_method', ['cod', 'bank_transfer']);
             $table->boolean('is_paid')->default(false);
 

@@ -10,6 +10,13 @@ use Carbon\Carbon;
 
 class CartService
 {
+    public function checkStock($productId,$quantity){
+        $product = Product::findOrFail($productId);
+        if($quantity > $product->stock){
+            return false;
+        }
+        return true;
+    }
     /**
      * Lấy giỏ hàng của người dùng và các item trong giỏ hàng.
      *
@@ -62,7 +69,10 @@ class CartService
     {
         // Tìm sản phẩm theo ID
         $product = Product::findOrFail($productId);
-
+        $checkstock = $this->checkStock($productId,$quantity);
+        if(!$checkstock){
+            return ['error' => 'Vượt quá số lượng hàng tồn kho'];
+        }
         // Lấy hoặc tạo mới giỏ hàng cho người dùng
         $cart = $this->getOrCreateCart();
 
@@ -89,15 +99,16 @@ class CartService
     /**
      * Cập nhật số lượng sản phẩm trong giỏ hàng.
      *
-     * @param int $itemId
-     * @param int $quantity
-     * @return void
+    
      */
     public function updateItemQuantity($itemId, $quantity)
     {
         // Tìm sản phẩm trong giỏ hàng theo ID
         $cartItem = CartItem::findOrFail($itemId);
-        
+        $checkstock = $this->checkStock($cartItem->product_id,$quantity);
+        if(!$checkstock){
+            return ['error' => 'Vượt quá số lượng tồn kho'];
+        }
         // Cập nhật số lượng sản phẩm
         $cartItem->quantity = $quantity;
         $cartItem->save();

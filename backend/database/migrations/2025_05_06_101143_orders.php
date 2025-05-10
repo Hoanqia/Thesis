@@ -15,9 +15,6 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
 
-            $table->string('order_code')->unique();
-            $table->string('ghtk_label')->nullable();
-
             $table->string('recipient_name');
             $table->string('recipient_phone');
             $table->text('recipient_address');
@@ -49,21 +46,7 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        Schema::create('shipping_addresses', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
-
-            $table->string('name');
-            $table->string('phone');
-            $table->text('address');
-            $table->string('province');
-            $table->string('district');
-            $table->string('ward');
-
-            $table->boolean('is_default')->default(false);
-
-            $table->timestamps();
-        });
+        
     }
 
     /**
@@ -73,6 +56,5 @@ return new class extends Migration
     {
         Schema::dropIfExists('order_items');
         Schema::dropIfExists('orders');
-        Schema::dropIfExists('shipping_addresses');
     }
 };

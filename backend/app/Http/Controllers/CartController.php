@@ -17,15 +17,6 @@ class CartController extends Controller
     {
         try {
             $cartData = $this->cartService->getCartWithItems();
-            // $total_price = 0;
-            // if($cart && $cart->cart_items){
-            //     foreach($cart->cart_items as $cartItem){
-            //         $product = $cartItem->product;
-            //         if($product && $product->status === 'active'){
-            //             $total_price +=  $product->price *  $cartItem->quantity;
-            //         }
-            //     }
-            // }
             if($cartData){
                 return response()->json([
                     'message' => !$cartData || $cartData['cart']->cart_items->isEmpty() ? 'Giỏ hàng trống' : 'Lấy giỏ hàng thành công',
@@ -47,8 +38,13 @@ class CartController extends Controller
                 'quantity' => 'required|integer|min:1',
             ]);
 
-            $this->cartService->addItem($validated['product_id'], $validated['quantity']);
-
+           $result = $this->cartService->addItem($validated['product_id'], $validated['quantity']);
+            if(isset($result['error'])){
+                return response()->json([
+                    'message' => $result['error'],
+                    'status' => 'error',
+                ],400);
+            }
             return response()->json([
                 'message' => 'Thêm vào giỏ hàng thành công',
                 'status' => 'success',
@@ -65,8 +61,13 @@ class CartController extends Controller
                 'quantity' => 'required|integer|min:1',
             ]);
 
-            $this->cartService->updateItemQuantity($itemId, $validated['quantity']);
-
+          $result =  $this->cartService->updateItemQuantity($itemId, $validated['quantity']);
+            if(isset($result['error'])){
+                return response()->json([
+                    'message' => $result['error'],
+                    'status' => 'error',
+                ],400);
+            }
             return response()->json([
                 'message' => 'Cập nhật số lượng thành công',
                 'status' => 'success',

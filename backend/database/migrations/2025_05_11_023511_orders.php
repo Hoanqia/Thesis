@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        
         Schema::create('orders', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
@@ -22,9 +23,15 @@ return new class extends Migration
             $table->string('district');
             $table->string('ward');
 
-            $table->decimal('shipping_fee', 10, 2)->default(0);
+            $table->foreignId('shipping_id')->nullable()->constrained('shipping_methods')->onDelete('set null');
+            $table->decimal('shipping_fee',10,2);
             $table->decimal('total_price', 10, 2);
-            $table->decimal('grand_total', 10, 2);
+
+            $table->foreignId('product_voucher_id')->nullable()->constrained('vouchers')->nullOnDelete();
+            $table->foreignId('shipping_voucher_id')->nullable()->constrained('vouchers')->nullOnDelete();
+
+            $table->decimal('discount_on_products', 10, 2)->default(0);
+            $table->decimal('discount_on_shipping', 10, 2)->default(0);
 
             $table->enum('status', ['pending','confirmed','shipping', 'completed', 'canceled'])->default('pending');
             $table->enum('payment_method', ['cod', 'bank_transfer']);
@@ -36,16 +43,14 @@ return new class extends Migration
         Schema::create('order_items', function (Blueprint $table) {
             $table->id();
             $table->foreignId('order_id')->constrained('orders')->onDelete('cascade');
-            $table->foreignId('product_id')->constrained('products')->onDelete('cascade');
+            $table->foreignId('product_id')->nullable()->constrained('products')->nullOnDelete();
 
             $table->string('product_name');
             $table->decimal('price', 10, 2);
             $table->integer('quantity');
-            $table->decimal('total', 10, 2);
-
             $table->timestamps();
         });
-
+       
         
     }
 

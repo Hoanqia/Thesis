@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('product_id')->constrained('products');
             $table->foreignId('user_id')->constrained('users');
             $table->integer('quantity');
-            $table->foreignId('order_id')->nullable()->constrained('orders')->onDelete('set null');
+            $table->foreignId('order_id')->nullable()->constrained('orders')->onDelete('cascade');
             $table->timestamp('expires_at'); // thời điểm giữ hết hiệu lực
             $table->timestamps();
         });

@@ -18,34 +18,24 @@ class Product extends Model
         'stock',
         'cat_id',
         'brand_id',
+        'image',
         'is_featured',
         'status',
     ];
 
-    /**
-     * Quan hệ: Sản phẩm thuộc về một brand
-     */
+   
     public function brand()
     {
         return $this->belongsTo(Brand::class);
     }
 
-    /**
-     * Quan hệ: Sản phẩm thuộc về một category
-     */
+   
     public function category()
     {
         return $this->belongsTo(Category::class, 'cat_id');
     }
 
-    /**
-     * Quan hệ: Sản phẩm có nhiều ảnh
-     */
-    public function images()
-    {
-        return $this->hasMany(ProductImage::class);
-    }
-    public function cart_items(){
-        return $this->hasMany(CartItem::class);
+    public function variants(){
+        return $this->hasMany(Variant::class);
     }
 }

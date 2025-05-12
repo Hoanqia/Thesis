@@ -11,6 +11,65 @@ return new class extends Migration
      */
     public function up(): void
     {   
+         Schema::create('vouchers', function (Blueprint $table) {
+            $table->id();
+            $table->string('code')->unique(); // Mã giảm giá
+
+            $table->enum('type', ['product_discount', 'shipping_discount']);
+
+            $table->integer('discount_percent')->nullable();       // VD: 10 (%)
+
+            $table->decimal('minimum_order_amount', 10, 2)->default(0); // Đơn hàng tối thiểu
+
+            // Hạn sử dụng
+            $table->dateTime('start_date');
+            $table->dateTime('end_date');
+
+            // Giới hạn lượt sử dụng
+            $table->integer('max_uses')->nullable(); // Null = không giới hạn
+            $table->integer('used_count')->default(0); // Theo dõi số lượt đã dùng
+
+            $table->boolean('status')->default(true); // Có đang hoạt động không
+
+            $table->timestamps();
+        });
+         Schema::create('users', function (Blueprint $table) {
+            $table->bigIncrements('id');
+            $table->string('name');
+            $table->date('dob')->nullable();
+            $table->string('phone_number')->unique();
+            $table->string('email')->unique();
+            $table->string('password');
+            $table->string('image')->nullable();
+            $table->enum('role', ['customer', 'admin'])->default('customer');
+            $table->boolean('status')->default(true);
+            $table->timestamps();
+        });
+         Schema::create('shipping_methods', function (Blueprint $table) {
+            $table->id();
+            $table->string('name'); // Tên phương thức vận chuyển
+            $table->decimal('fee', 10, 2); // Phí vận chuyển tĩnh cho phương thức này
+            $table->timestamps();
+        });
+         Schema::create('user_addresses', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+        
+            // Địa chỉ phân cấp theo GHTK API
+            $table->string('province');     // Tỉnh/Thành phố
+            $table->string('district');     // Quận/Huyện
+            $table->string('ward');         // Phường/Xã
+        
+            // Thông tin chi tiết hơn
+            $table->string('street_address'); // Số nhà, tên đường
+        
+            // Các tuỳ chọn thêm
+            $table->string('phone');
+            $table->boolean('is_default')->default(false); // Địa chỉ mặc định của người dùng
+        
+            $table->timestamps();
+        });
+        
 
          Schema::create('products', function (Blueprint $table) {
             $table->id(); // bigIncrements
@@ -23,6 +82,7 @@ return new class extends Migration
             $table->foreignId('brand_id')
             ->constrained('brands')
             ->restrictOnDelete();
+            $table->string('image')->nullable();
             $table->boolean('is_featured')->default(false);          
             $table->boolean('status')->default(true);
             $table->timestamps();
@@ -97,7 +157,7 @@ return new class extends Migration
             $table->string('district');
             $table->string('ward');
 
-            $table->foreignId('shipping_id')->nullable()->constrained('shipping_methods')->onDelete('set null');
+            $table->foreignId('shipping_id')->nullable()->constrained('shipping_methods')->nullOnDelete();
             $table->decimal('shipping_fee',10,2);
             $table->decimal('total_price', 10, 2);
 
@@ -124,7 +184,15 @@ return new class extends Migration
             $table->integer('quantity');
             $table->timestamps();
         });
-       
+         Schema::create('reserved_stocks', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('variant_id')->constrained('product_variants');
+            $table->foreignId('user_id')->constrained('users');
+            $table->integer('quantity');
+            $table->foreignId('order_id')->nullable()->constrained('orders')->onDelete('cascade');
+            $table->timestamp('expires_at'); // thời điểm giữ hết hiệu lực
+            $table->timestamps();
+        });
          Schema::create('user_events', function (Blueprint $table) {
             $table->id('event_id');
             $table->unsignedBigInteger('user_id');
@@ -157,6 +225,8 @@ return new class extends Migration
             $table->index(['product_id_1']);
             $table->index(['product_id_2']);
         });
+        DB::statement("ALTER TABLE item_similarity ADD CONSTRAINT chk_product_order 
+               CHECK (product_id_1 < product_id_2)");
 
         Schema::create('user_recommendations', function (Blueprint $table) {
             $table->id('rec_id');
@@ -170,16 +240,9 @@ return new class extends Migration
 
             $table->unique(['user_id', 'product_id']); // tránh trùng gợi ý
             $table->index(['user_id']);
+            $table->timestamp('created_at')->useCurrent();
         });
-        Schema::create('reserved_stocks', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('variant_id')->constrained('product_variants');
-            $table->foreignId('user_id')->constrained('users');
-            $table->integer('quantity');
-            $table->foreignId('order_id')->nullable()->constrained('orders')->onDelete('cascade');
-            $table->timestamp('expires_at'); // thời điểm giữ hết hiệu lực
-            $table->timestamps();
-        });
+       
     }
 
     /**

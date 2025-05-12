@@ -17,7 +17,7 @@ class CartController extends Controller
     {
         try {
             $cartData = $this->cartService->getCartWithItems();
-            if($cartData){
+            if ($cartData) {
                 return response()->json([
                     'message' => !$cartData || $cartData['cart']->cart_items->isEmpty() ? 'Giỏ hàng trống' : 'Lấy giỏ hàng thành công',
                     'status' => 'success',
@@ -25,6 +25,11 @@ class CartController extends Controller
                     'total_price' => $cartData['total_price'],
                 ]);
             }
+
+            return response()->json([
+                'message' => 'Không tìm thấy giỏ hàng',
+                'status' => 'error',
+            ], 404);
         } catch (\Exception $e) {
             return ApiExceptionHandler::handleException($e);
         }
@@ -34,17 +39,19 @@ class CartController extends Controller
     {
         try {
             $validated = $request->validate([
-                'product_id' => 'required|exists:products,id',
+                'variant_id' => 'required|exists:product_variants,id',
                 'quantity' => 'required|integer|min:1',
             ]);
 
-           $result = $this->cartService->addItem($validated['product_id'], $validated['quantity']);
-            if(isset($result['error'])){
+            $result = $this->cartService->addItem($validated['variant_id'], $validated['quantity']);
+
+            if (isset($result['error'])) {
                 return response()->json([
                     'message' => $result['error'],
                     'status' => 'error',
-                ],400);
+                ], 400);
             }
+
             return response()->json([
                 'message' => 'Thêm vào giỏ hàng thành công',
                 'status' => 'success',
@@ -61,13 +68,15 @@ class CartController extends Controller
                 'quantity' => 'required|integer|min:1',
             ]);
 
-          $result =  $this->cartService->updateItemQuantity($itemId, $validated['quantity']);
-            if(isset($result['error'])){
+            $result = $this->cartService->updateItemQuantity($itemId, $validated['quantity']);
+
+            if (isset($result['error'])) {
                 return response()->json([
                     'message' => $result['error'],
                     'status' => 'error',
-                ],400);
+                ], 400);
             }
+
             return response()->json([
                 'message' => 'Cập nhật số lượng thành công',
                 'status' => 'success',
@@ -76,8 +85,9 @@ class CartController extends Controller
             return ApiExceptionHandler::handleException($e);
         }
     }
+    
 
-    public function removeItem($itemId)
+   public function removeItem($itemId)
     {
         try {
             $this->cartService->removeItem($itemId);
@@ -89,9 +99,9 @@ class CartController extends Controller
         } catch (\Exception $e) {
             return ApiExceptionHandler::handleException($e);
         }
-    }
+    }   
 
-    public function clearCart()
+     public function clearCart()
     {
         try {
             $this->cartService->clearCart();

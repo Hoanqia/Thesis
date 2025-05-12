@@ -5,6 +5,8 @@ namespace Database\Seeders;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use App\Models\UserEvent;
+use App\Models\User;
+use App\Models\Product;
 
 class UserEventSeeder extends Seeder
 {
@@ -13,12 +15,14 @@ class UserEventSeeder extends Seeder
      */
     public function run(): void
     {
-         // Kiểm tra xem có user và product trước không
-         if (\App\Models\User::count() === 0 || \App\Models\Product::count() === 0) {
-            $this->command->warn('⚠️  Vui lòng seed users và products trước khi seed user_events.');
-            return;
-        }
+            User::all()->each(function ($user) {
+            Product::inRandomOrder()->take(10)->get()->each(function ($product) use ($user) {
+                UserEvent::factory()->create([
+                    'user_id' => $user->id,
+                    'product_id' => $product->id,
+                ]);
+            });
+        });
 
-        UserEvent::factory()->count(300)->create(); // số lượng tuỳ ý bạn
     }
 }

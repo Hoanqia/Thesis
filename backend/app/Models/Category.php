@@ -15,4 +15,8 @@ class Category extends Model
         'status',
     ];
     protected $table = 'categories';
+    public function specifications() {
+        return $this->hasMany(Specification::class);
+    }
+    
 }

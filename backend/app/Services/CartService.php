@@ -5,47 +5,46 @@ namespace App\Services;
 use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\Product;
+use App\Models\Variant;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
 class CartService
 {
-    public function checkStock($productId,$quantity){
-        $product = Product::findOrFail($productId);
-        if($quantity > $product->stock){
-            return false;
-        }
-        return true;
+    public function checkStock($variantId, $quantity){
+        $variant = Variant::findOrFail($variantId);
+        return $quantity <= $variant->stock;
     }
+
     /**
      * Lấy giỏ hàng của người dùng và các item trong giỏ hàng.
      *
      * @return \App\Models\Cart
      */
-    public function getCartWithItems()
-    {
-        // Lấy giỏ hàng của người dùng kèm các item trong giỏ hàng
-       $cart = Cart::with(['cart_items.product' => function($query){
-            $query->select('id','name');},
-            'cart_items' => function($query){
-                $query->select('id','cart_id','product_id','quantity','price_at_time');
-            }])
-            ->select('id','user_id')
-            ->where('user_id', Auth::user()->id)
-            ->first();
-            if ($cart) {
-                // Tính tổng tiền trong giỏ hàng
-                $total = $cart->cart_items->sum(function ($item) {
-                    return $item->quantity * $item->price_at_time; // Tính tiền cho mỗi item
-                });
-    
-                return [
-                    'cart' => $cart,
-                    'total_price' => $total
-                ];
+    public function getCartWithItems(){
+        $cart = Cart::with([
+            'cart_items.variant.product:id,name',
+            'cart_items' => function ($query) {
+                $query->select('id','cart_id','variant_id','quantity','price_at_time');
             }
+        ])
+        ->select('id','user_id')
+        ->where('user_id', Auth::id())
+        ->first();
+
+        if ($cart) {
+            $total = $cart->cart_items->sum(function ($item) {
+                return $item->quantity * $item->price_at_time;
+            });
+
+            return [
+                'cart' => $cart,
+                'total_price' => $total
+            ];
+        }
         return null;
     }
+
 
     /**
      * Tạo mới hoặc lấy giỏ hàng của người dùng.
@@ -65,36 +64,32 @@ class CartService
      * @param int $quantity
      * @return void
      */
-    public function addItem($productId, $quantity)
-    {
-        // Tìm sản phẩm theo ID
-        $product = Product::findOrFail($productId);
-        $checkstock = $this->checkStock($productId,$quantity);
-        if(!$checkstock){
-            return ['error' => 'Vượt quá số lượng hàng tồn kho'];
-        }
-        // Lấy hoặc tạo mới giỏ hàng cho người dùng
-        $cart = $this->getOrCreateCart();
+    public function addItem($variantId, $quantity){
+            $variant = Variant::findOrFail($variantId);
 
-        // Kiểm tra xem sản phẩm đã có trong giỏ hàng chưa
-        $cartItem = CartItem::where('cart_id', $cart->id)
-            ->where('product_id', $productId)
-            ->first();
+            if (!$this->checkStock($variantId, $quantity)) {
+                return ['error' => 'Vượt quá số lượng hàng tồn kho'];
+            }
 
-        // Nếu có sản phẩm trong giỏ hàng, tăng số lượng lên
-        if ($cartItem) {
-            $cartItem->quantity += $quantity;
-            $cartItem->save();
-        } else {
-            // Nếu chưa có sản phẩm trong giỏ hàng, thêm mới sản phẩm vào giỏ
-            $cart->cart_items()->create([
-                'product_id' => $productId,
-                'quantity' => $quantity,
-                'price_at_time' => $product->price,
-                'expires_at' => Carbon::now()->addMinutes(30), // Giới hạn thời gian giỏ hàng
-            ]);
-        }
+            $cart = $this->getOrCreateCart();
+
+            $cartItem = CartItem::where('cart_id', $cart->id)
+                ->where('variant_id', $variantId)
+                ->first();
+
+            if ($cartItem) {
+                $cartItem->quantity += $quantity;
+                $cartItem->save();
+            } else {
+                $cart->cart_items()->create([
+                    'variant_id' => $variantId,
+                    'quantity' => $quantity,
+                    'price_at_time' => $variant->price,
+                    'expires_at' => Carbon::now()->addMinutes(30),
+                ]);
+            }
     }
+
 
     /**
      * Cập nhật số lượng sản phẩm trong giỏ hàng.
@@ -102,17 +97,17 @@ class CartService
     
      */
     public function updateItemQuantity($itemId, $quantity)
-    {
-        // Tìm sản phẩm trong giỏ hàng theo ID
-        $cartItem = CartItem::findOrFail($itemId);
-        $checkstock = $this->checkStock($cartItem->product_id,$quantity);
-        if(!$checkstock){
-            return ['error' => 'Vượt quá số lượng tồn kho'];
-        }
-        // Cập nhật số lượng sản phẩm
-        $cartItem->quantity = $quantity;
-        $cartItem->save();
+{
+    $cartItem = CartItem::findOrFail($itemId);
+
+    if (!$this->checkStock($cartItem->variant_id, $quantity)) {
+        return ['error' => 'Vượt quá số lượng tồn kho'];
     }
+
+    $cartItem->quantity = $quantity;
+    $cartItem->save();
+}
+
 
     /**
      * Xoá một sản phẩm khỏi giỏ hàng.

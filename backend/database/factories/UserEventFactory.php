@@ -19,15 +19,14 @@ class UserEventFactory extends Factory
 
     public function definition(): array
     {
-        $eventType = $this->faker->randomElement(['view', 'add_to_cart', 'rate']);
-        $value = $eventType === 'rate' ? $this->faker->numberBetween(1, 5) : null;
-
+         $eventType = $this->faker->randomElement(['view', 'add_to_cart', 'rate']);
+        
         return [
             'user_id' => User::inRandomOrder()->value('id') ?? 1,
             'product_id' => Product::inRandomOrder()->value('id') ?? 1,
             'event_type' => $eventType,
-            'value' => $value,
-            'created_at' => $this->faker->dateTimeThisMonth(),
+            'value' => $eventType === 'rate' ? $this->faker->numberBetween(1, 5) : null,
+            'created_at' => $this->faker->dateTimeBetween('-30 days', 'now'),
         ];
     }
 }

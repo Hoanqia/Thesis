@@ -10,7 +10,7 @@ class ReservedStock extends Model
     use HasFactory;
 
     protected $fillable = [
-        'product_id',
+        'variant_id',
         'user_id',
         'quantity',
         'order_id',
@@ -20,9 +20,9 @@ class ReservedStock extends Model
     protected $dates = ['expires_at'];
 
     // Quan hệ: ReservedStock thuộc về một sản phẩm
-    public function product()
+    public function variant()
     {
-        return $this->belongsTo(Product::class);
+        return $this->belongsTo(Variant::class);
     }
 
     // Quan hệ: ReservedStock thuộc về một người dùng

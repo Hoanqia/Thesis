@@ -51,7 +51,7 @@ class CartController extends Controller
                     'status' => 'error',
                 ], 400);
             }
-
+           
             return response()->json([
                 'message' => 'Thêm vào giỏ hàng thành công',
                 'status' => 'success',

@@ -8,9 +8,17 @@ use App\Models\Product;
 use App\Models\Variant;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class CartService
-{
+{   
+    public function removeExpiredItems(){
+        DB::table('cart_items')
+            ->whereNotNull('expires_at')
+            ->where('expires_at', '<', now())
+            ->delete();
+    }
+
     public function checkStock($variantId, $quantity){
         $variant = Variant::findOrFail($variantId);
         return $quantity <= $variant->stock;
@@ -22,10 +30,11 @@ class CartService
      * @return \App\Models\Cart
      */
     public function getCartWithItems(){
+        $this->removeExpiredItems();
         $cart = Cart::with([
             'cart_items.variant.product:id,name',
             'cart_items' => function ($query) {
-                $query->select('id','cart_id','variant_id','quantity','price_at_time');
+                $query->select('id','cart_id','variant_id','quantity','price_at_time','expires_at');
             }
         ])
         ->select('id','user_id')
@@ -65,6 +74,7 @@ class CartService
      * @return void
      */
     public function addItem($variantId, $quantity){
+            $this->removeExpiredItems();
             $variant = Variant::findOrFail($variantId);
 
             if (!$this->checkStock($variantId, $quantity)) {
@@ -85,7 +95,7 @@ class CartService
                     'variant_id' => $variantId,
                     'quantity' => $quantity,
                     'price_at_time' => $variant->price,
-                    'expires_at' => Carbon::now()->addMinutes(30),
+                    'expires_at' => Carbon::now()->addDays(1),
                 ]);
             }
     }

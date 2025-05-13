@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;  // Thêm dòng này
 
 class Specification extends Model
 {
+    use HasFactory;
     protected $fillable = [
         'category_id',
         'name',

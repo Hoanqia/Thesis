@@ -4,6 +4,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use App\Console\Commands\CleanExpiredReservedStocks;
+use App\Console\Commands\RemoveExpiredCartItems;
 use Illuminate\Console\Scheduling\Schedule;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -24,5 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ])
     ->withSchedule(function (Schedule $schedule){
         $schedule->command(CleanExpiredReservedStocks::class)->everyFiveMinutes(); 
+        $schedule->command(RemoveExpiredCartItems::class)->everyFiveMinutes();
+        
     })
     ->create();

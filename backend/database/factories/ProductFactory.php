@@ -21,9 +21,6 @@ class ProductFactory extends Factory
             'name' => $name,
             'slug' => Str::slug($name) . '-' . Str::random(5),
             'description' => $this->faker->sentence(10),
-            'price' => $this->faker->randomFloat(2, 10, 1000),
-            'discount' => $this->faker->randomFloat(2, 0, 50),
-            'stock' => $this->faker->numberBetween(0, 1000),
             'cat_id' => Category::inRandomOrder()->value('id') ?? 1,  // lấy id ngẫu nhiên
             'brand_id' => Brand::inRandomOrder()->value('id') ?? 1,    // lấy id ngẫu nhiên
             'is_featured' => $this->faker->boolean(30),

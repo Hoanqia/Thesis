@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;  // Thêm dòng này
 
 class VariantSpecValue extends Model
 {
+    use HasFactory;
     protected $fillable = [
         'variant_id',
         'spec_id',

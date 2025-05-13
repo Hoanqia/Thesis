@@ -62,6 +62,7 @@ Route::middleware(['auth:api'])->group(function () {
         });
     });
     
+    
 }); // ngoặc xác thực api
 Route::get('/products/{slug}',[ProductController::class,'get']);
 Route::get('/products',[ProductController::class,'getAll']);

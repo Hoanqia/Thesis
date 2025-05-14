@@ -6,12 +6,12 @@ use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\Product;
 use App\Models\Variant;
+use App\Models\Voucher;
 use Illuminate\Support\Facades\Auth;
 
 class CustomerOrderService
 {
-    public function createOrder(array $data)
-    {
+   public function createOrder(array $data){
         $user = Auth::user();
         $cart = Cart::where('user_id', $user->id)->firstOrFail();
         $cartItems = $cart->cartItems;
@@ -20,7 +20,7 @@ class CustomerOrderService
             throw new \Exception("Giỏ hàng trống.");
         }
 
-        // Lấy địa chỉ
+        // Lấy địa chỉ giao hàng
         if (!empty($data['address_id'])) {
             $address = $user->addresses()->where('id', $data['address_id'])->first();
             if (!$address) {
@@ -33,14 +33,82 @@ class CustomerOrderService
             }
         }
 
-        // Tính tổng giá từ variant
+        // Tính tổng giá sản phẩm ban đầu
         $totalPrice = $cartItems->sum(function ($item) {
-            return $item->variant->price * $item->quantity;
+            return $item->price_at_time * $item->quantity;
         });
 
-        $shippingFee = $data['shipping_fee'] ?? 0;
-        $grandTotal = $totalPrice + $shippingFee;
+        // Lấy voucher ID từ request (nếu có)
+        $productVoucherId = $data['product_voucher_id'] ?? null;
+        $shippingVoucherId = $data['shipping_voucher_id'] ?? null;
 
+        $discountOnProducts = 0;
+        $discountOnShipping = 0;
+
+        // Áp dụng giảm giá sản phẩm theo phần trăm từ voucher
+        if ($productVoucherId) {
+            $productVoucher = Voucher::where('id', $productVoucherId)
+                ->where('type', 'product_discount')
+                ->where('status', true)
+                ->where('start_date', '<=', now())
+                ->where('end_date', '>=', now())
+                ->where(function($query) {
+                    $query->whereNull('max_uses')
+                        ->orWhereColumn('used_count', '<', 'max_uses');
+                })
+                ->first();
+
+            if ($productVoucher) {
+                $discountOnProducts = $totalPrice * ($productVoucher->discount_percent / 100);
+                $productVoucher->increment('used_count');
+            } else {
+                throw new \Exception("Voucher giảm giá sản phẩm không hợp lệ.");
+            }
+        }
+
+        // Lấy shipping_id và shipping_fee từ bảng shipping_methods
+    $shippingFee = 0;
+    $shippingId = $data['shipping_id'] ?? null;
+
+    if ($shippingId) {
+        $shipping = \App\Models\ShippingMethod::find($shippingId);
+        if ($shipping) {
+            $shippingFee = $shipping->fee;
+        } else {
+            throw new \Exception("Phương thức vận chuyển không hợp lệ.");
+        }
+    }
+
+        // Áp dụng giảm giá phí vận chuyển theo phần trăm từ voucher
+        if ($shippingVoucherId) {
+            $shippingVoucher = Voucher::where('id', $shippingVoucherId)
+                ->where('type', 'shipping_discount')
+                ->where('status', true)
+                ->where('start_date', '<=', now())
+                ->where('end_date', '>=', now())
+                ->where(function($query) {
+                    $query->whereNull('max_uses')
+                        ->orWhereColumn('used_count', '<', 'max_uses');
+                })
+                ->first();
+
+            if ($shippingVoucher) {
+                $discountOnShipping = $shippingFee * ($shippingVoucher->discount_percent / 100);
+                $shippingVoucher->increment('used_count');
+            } else {
+                throw new \Exception("Voucher giảm giá vận chuyển không hợp lệ.");
+            }
+        }
+
+        // Tổng tiền cuối cùng
+        $grandTotal = ($totalPrice - $discountOnProducts) + ($shippingFee - $discountOnShipping);
+        foreach ($cartItems as $item) {
+            $variant = $item->variant;
+
+            if ($variant->stock < $item->quantity) {
+                throw new \Exception("Sản phẩm '{$variant->name}' không đủ số lượng trong kho. Còn lại: {$variant->stock}");
+            }
+        }
         // Tạo đơn hàng
         $order = $user->orders()->create([
             'recipient_name' => $user->name,
@@ -49,33 +117,37 @@ class CustomerOrderService
             'province' => $address->province,
             'district' => $address->district,
             'ward' => $address->ward,
+            'shipping_id' => $shippingId,
             'shipping_fee' => $shippingFee,
             'total_price' => $totalPrice,
+            'product_voucher_id' => $productVoucherId,
+            'shipping_voucher_id' => $shippingVoucherId,
+            'discount_on_products' => $discountOnProducts,
+            'discount_on_shipping' => $discountOnShipping,
             'status' => 'pending',
             'payment_method' => $data['payment_method'],
             'is_paid' => false,
         ]);
 
-        // Tạo các order_items
+        // Lưu các mặt hàng trong đơn
         foreach ($cartItems as $item) {
             $variant = $item->variant;
-
+            $productName = $variant->product->name;
             $order->orderItems()->create([
                 'variant_id' => $variant->id,
-                'variant_name' => $variant->name,
+                'variant_name' => $productName,
                 'price' => $variant->price,
                 'quantity' => $item->quantity,
             ]);
-
-            // Giảm tồn kho
-            $variant->decrement('stock', $item->quantity);
         }
 
-        // Xoá giỏ hàng
+        // Xoá giỏ hàng sau khi đặt hàng
         $cartItems->each->delete();
 
         return $order;
     }
+
+
 
     public function getUserOrders()
     {
@@ -89,7 +161,7 @@ class CustomerOrderService
 
     public function cancelOrder($orderId)
     {
-        $order = Auth::user()->orders()->where('status', 'pending')->findOrFail($orderId);
+        $order = Auth::user()->orders()->where('status', ['pending','shipping'])->findOrFail($orderId);
         $order->update(['status' => 'canceled']);
 
         // Hoàn tồn kho
@@ -103,8 +175,10 @@ class CustomerOrderService
     public function confirmReceived($orderId)
     {
         $user = Auth::user();
-        $order = $user->orders()->where('status', 'delivering')->findOrFail($orderId);
-
+        $order = $user->orders()->where('status', 'shipping')->where('id',$orderId)->first();
+         if (!$order) {
+            return null; // để controller xử lý 404
+        }
         $updateData = ['status' => 'completed'];
         if ($order->payment_method === 'cod') {
             $updateData['is_paid'] = true;

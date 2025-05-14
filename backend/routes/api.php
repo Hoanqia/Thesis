@@ -6,7 +6,7 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CartController;
-
+use App\Http\Controllers\CustomerOrderController;
 // use app\Http\Middleware\RoleMiddleware;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
@@ -59,10 +59,23 @@ Route::middleware(['auth:api'])->group(function () {
             Route::post('/cart',[CartController::class,'addToCart']);
             Route::get('/cart',[CartController::class,'getCart']);
             Route::delete('/cart',[CartController::class,'clearCart']);
+
+
+
+
+            Route::patch('/orders/{orderId}/confirm',[CustomerOrderController::class,'confirmReceived']);
+            Route::patch('/orders/{orderId}/cancel',[CustomerOrderController::class,'cancelOrder']);
+            Route::get('/orders/{orderId}',[CustomerOrderController::class,'getOrderDetails']);
+            Route::get('/orders',[CustomerOrderController::class,'getUserOrders']);
+            Route::post('/orders',[CustomerOrderController::class,'createOrder']);
         });
+
     });
     
     
 }); // ngoặc xác thực api
 Route::get('/products/{slug}',[ProductController::class,'get']);
 Route::get('/products',[ProductController::class,'getAll']);
+Route::get('/test-plain', function () {
+    return response()->json(['message' => 'ok không dùng DB']);
+});

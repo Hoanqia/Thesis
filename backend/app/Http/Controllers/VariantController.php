@@ -15,8 +15,7 @@ class VariantController extends Controller
         $this->variantService = $variantService;
     }
 
-    public function store(Request $request)
-    {
+   public function store(Request $request){
         try {
             $validated = $request->validate([
                 'product_id' => 'required|exists:products,id',
@@ -24,12 +23,17 @@ class VariantController extends Controller
                 'price'      => 'required|numeric|min:0',
                 'discount'   => 'nullable|numeric|min:0',
                 'stock'      => 'nullable|integer|min:0',
-                'spec_values'=> 'nullable|array',
+                'parent_variant_id' => 'nullable|exists:product_variants,id',
+
+                'spec_values' => 'nullable|array',
                 'spec_values.*.spec_id' => 'required|exists:specifications,id',
                 'spec_values.*.option_id' => 'nullable|exists:spec_options,id',
-                // Các field value_text, value_int, value_decimal tùy kiểu dữ liệu
+                'spec_values.*.value_text' => 'nullable|string',
+                'spec_values.*.value_int' => 'nullable|integer',
+                'spec_values.*.value_decimal' => 'nullable|numeric',
             ]);
 
+            // Gọi service xử lý
             $variant = $this->variantService->createVariant($validated);
 
             return response()->json([
@@ -41,6 +45,7 @@ class VariantController extends Controller
             return ApiExceptionHandler::handleException($e);
         }
     }
+
 
     public function getByProduct($productId)
     {

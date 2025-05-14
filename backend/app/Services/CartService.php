@@ -13,9 +13,10 @@ use Illuminate\Support\Facades\DB;
 class CartService
 {   
     public function removeExpiredItems(){
+        $now = Carbon::now();
         DB::table('cart_items')
             ->whereNotNull('expires_at')
-            ->where('expires_at', '<', now())
+            ->where('expires_at', '<', $now)
             ->delete();
     }
 
@@ -73,32 +74,42 @@ class CartService
      * @param int $quantity
      * @return void
      */
-    public function addItem($variantId, $quantity){
-            $this->removeExpiredItems();
-            $variant = Variant::findOrFail($variantId);
+   public function addItem($variantId, $quantity)
+{
+    // Tìm biến thể sản phẩm
+    $variant = Variant::findOrFail($variantId);
 
-            if (!$this->checkStock($variantId, $quantity)) {
-                return ['error' => 'Vượt quá số lượng hàng tồn kho'];
-            }
-
-            $cart = $this->getOrCreateCart();
-
-            $cartItem = CartItem::where('cart_id', $cart->id)
-                ->where('variant_id', $variantId)
-                ->first();
-
-            if ($cartItem) {
-                $cartItem->quantity += $quantity;
-                $cartItem->save();
-            } else {
-                $cart->cart_items()->create([
-                    'variant_id' => $variantId,
-                    'quantity' => $quantity,
-                    'price_at_time' => $variant->price,
-                    'expires_at' => Carbon::now()->addDays(1),
-                ]);
-            }
+    // Kiểm tra tồn kho
+    if (!$this->checkStock($variantId, $quantity)) {
+        return ['error' => 'Vượt quá số lượng hàng tồn kho'];
     }
+
+    // Lấy hoặc tạo giỏ hàng
+    $cart = $this->getOrCreateCart();
+
+    // Kiểm tra item đã tồn tại trong giỏ hay chưa
+    $cartItem = CartItem::where('cart_id', $cart->id)
+        ->where('variant_id', $variantId)
+        ->first();
+
+    if ($cartItem) {
+        // ✅ Nếu đã có, cập nhật số lượng và gia hạn thời gian hết hạn
+        $cartItem->quantity += $quantity;
+        $cartItem->expires_at = Carbon::now('Asia/Ho_Chi_Minh')->addDays(1); // reset lại hạn
+        $cartItem->save();
+    } else {
+        // ✅ Nếu chưa có thì tạo mới
+        $cart->cart_items()->create([
+            'variant_id'    => $variantId,
+            'quantity'      => $quantity,
+            'price_at_time' => $variant->price,
+            'expires_at'    => Carbon::now('Asia/Ho_Chi_Minh')->addDays(1),
+        ]);
+    }
+
+    return ['success' => true];
+}
+
 
 
     /**

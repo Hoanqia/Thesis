@@ -61,7 +61,47 @@ class UserController extends Controller
             return ApiExceptionHandler::handleException($e); // Trả về lỗi API chuẩn cho các lỗi khác
         }
     }
+    public function register_admin(Request $request)
+    {
+        
+        try {
+        $validatedData = $request->validate([
+            'name'          => 'required|string|max:255',
+            'email'         => 'required|email|unique:users,email',
+            'password'      => 'required|string|min:6',
+            'dob'           => 'nullable|date',
+            'phone_number'  => 'required|string',
+            'role'          => 'required',
+        ]);
 
+            $user = User::create([
+                'name'          => $validatedData['name'],
+                'email'         => $validatedData['email'],
+                'password'      => Hash::make($validatedData['password']),
+                'dob'           => $validatedData['dob'] ?? null,
+                'phone_number'  => $validatedData['phone_number'],
+                'role'          => $validatedData['role'],
+            ]);
+            // $user->sendEmailVerificationNotification();
+            return response()->json([
+                'message' => 'Đăng ký thành công',
+                'status' => 'success',
+            ],201);
+            // $token = Auth::login($user);
+            // return response()->json([
+            //     'status' => 'success',
+            //     'user'   => $user,
+            //     'token'  => $token
+            // ], 201);
+        } catch (\Exception $e) {
+            Log::error('[' . now()->toDateTimeString() . '] Lỗi khi thêm danh mục: ' . $e->getMessage(), [
+                'stack' => $e->getTraceAsString(),
+                'request_data' => $request->all()
+            ]);
+            
+            return ApiExceptionHandler::handleException($e); // Trả về lỗi API chuẩn cho các lỗi khác
+        }
+    }
     // Đăng nhập
     public function login(Request $request)
 {

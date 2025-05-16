@@ -97,4 +97,5 @@ class VariantService
         return Variant::with(['variantSpecValues.specification', 'variantSpecValues.spec_options'])
                       ->findOrFail($variantId);
     }
+    
 }

@@ -21,6 +21,7 @@ use App\Models\User;
 // Tất cả route trong api.php đều tự động có tiền tố /api
 Route::prefix('auth')->group(function () {
     // Các route public
+    Route::post('register/admin',[UserController::class, 'register_admin']);
     Route::post('register',[UserController::class, 'register']);
     Route::post('login',[UserController::class, 'login']);
     Route::post('refresh-token', [UserController::class, 'refreshToken']);
@@ -50,6 +51,8 @@ Route::middleware(['auth:api'])->group(function () {
             Route::post('/brands',[BrandController::class,'store']);
             Route::get('/brands',[BrandController::class,'getAll']);
             
+            
+            Route::post('/products',[ProductController::class,'store']);
         });
     });
     Route::middleware('role:customer')->group(function (){

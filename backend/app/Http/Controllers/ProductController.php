@@ -66,7 +66,23 @@ class ProductController extends Controller
             return ApiExceptionHandler::handleException($e);
         }
     }
+    public function getFeaturedProducts()
+    {
+        try {
+            $products = $this->productService->getFeaturedProducts();
 
+            return response()->json([
+                'message' => $products->isEmpty() ? 'Không có sản phẩm' : 'Lấy danh sách thành công',
+                'status' => 'success',
+                'data' => $products,
+            ]);
+        } catch (\Exception $e) {
+            // // Có thể dùng custom ApiExceptionHandler nếu bạn đã cấu hình
+            return ApiExceptionHandler::handleException($e);
+            // Nếu chưa có ApiExceptionHandler, dùng fallback:
+            // return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
     public function edit($slug, Request $request)
     {
         try {

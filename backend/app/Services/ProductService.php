@@ -32,11 +32,17 @@ class ProductService
     {
         return Product::with(['brand', 'category'])->get();
     }
-
+    public function getFeaturedProducts()
+    {
+        return Product::with(['brand','variants'])->where('is_featured',1)->get();
+    }
     public function getBySlug(string $slug)
     {
         return Product::with(['brand', 'category', 'variants'])->where('slug', $slug)->first();
     }
+
+   
+  
 
     public function update(string $slug, array $data)
     {

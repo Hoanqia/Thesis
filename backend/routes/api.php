@@ -74,8 +74,12 @@ Route::middleware(['auth:api'])->group(function () {
     
     
 }); // ngoặc xác thực api
+
 Route::get('/products/{slug}',[ProductController::class,'get']);
 Route::get('/products',[ProductController::class,'getAll']);
+
+Route::get('/featured-products', [ProductController::class, 'getFeaturedProducts']);
+
 Route::get('/test-plain', function () {
     return response()->json(['message' => 'ok không dùng DB']);
 });

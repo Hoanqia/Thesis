@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Services\SpecificationService;
 use App\Exceptions\ApiExceptionHandler;
+use Illuminate\Support\Facades\Log;
 
 class SpecificationController extends Controller
 {

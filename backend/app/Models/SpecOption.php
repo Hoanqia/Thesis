@@ -15,4 +15,5 @@ class SpecOption extends Model
     public function specification(){
         return $this->belongsTo(Specification::class,'spec_id');
     }
+    
 }

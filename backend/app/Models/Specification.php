@@ -20,7 +20,7 @@ class Specification extends Model
         return $this->belongsTo(Category::class,'category_id');
     }
     public function spec_options (){
-        return $this->hasMany(SpecOption::class);
+        return $this->hasMany(SpecOption::class,"id");
     }
     public function variant_spec_values(){
         return $this->hasMany(VariantSpecValue::class);

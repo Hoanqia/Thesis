@@ -30,9 +30,19 @@ class SpecificationService
             'data_type' => 'required|in:int,decimal,text,option',
             'unit' => 'nullable|string|max:50',
             'description' => 'nullable|string',
+            'options' => 'sometimes|array',
+            'options.*' => 'string',
         ])->validate();
+        $spec = Specification::create($validated);
 
-        return Specification::create($validated);
+         if ($validated['data_type'] === 'option' && !empty($validated['options'])) {
+            foreach ($validated['options'] as $value) {
+                $spec->spec_options()->create([
+                    'value' => $value,
+                ]);
+            }
+        }
+        return $spec;
     }
 
     /**

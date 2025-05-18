@@ -7,6 +7,9 @@ use App\Http\Controllers\BrandController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CustomerOrderController;
+use App\Http\Controllers\SpecificationController;
+use App\Http\Controllers\SpecOptionController;
+
 // use app\Http\Middleware\RoleMiddleware;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
@@ -58,8 +61,23 @@ Route::middleware(['auth:api'])->group(function () {
             Route::delete('/products/{slug}',[ProductController::class,'destroy']);
             Route::post('/products',[ProductController::class,'store']);
             Route::get('/products',[ProductController::class,'getAll']);
-            Route::get('/products/search',[ProductController::class,'index']);
-           
+            Route::get('/products/search',[ProductController::class,'index']); // index này là search, còn các index khác là get All
+            
+
+            Route::delete('/specifications/{id}',[SpecificationController::class,'destroy']);
+            Route::patch('/specifications/{id}',[SpecificationController::class,'edit']);
+            Route::get('/specifications/{id}',[SpecificationController::class,'get']);
+            Route::get('/specifications',[SpecificationController::class,'index']);
+            Route::post('/specifications',[SpecificationController::class,'store']);
+
+
+
+            Route::delete('/spec-option/{id}',[SpecOptionController::class,'destroy']);
+            Route::patch('/spec-options/{id}',[SpecOptionController::class,'update']);
+            Route::get('/spec-options/{id}',[SpecOptionController::class,'get']);
+            Route::post('/spec-options',[SpecOptionController::class,'store']);
+            Route::get('/spec-options',[SpecOptionController::class,'index']);
+            
         });
     });
     Route::middleware('role:customer')->group(function (){
@@ -90,6 +108,4 @@ Route::get('/products',[ProductController::class,'getAll']);
 
 Route::get('/featured-products', [ProductController::class, 'getFeaturedProducts']);
 
-Route::get('/test-plain', function () {
-    return response()->json(['message' => 'ok không dùng DB']);
-});
+

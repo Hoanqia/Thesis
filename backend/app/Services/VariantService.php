@@ -8,38 +8,43 @@ use Illuminate\Support\Facades\DB;
 
 class VariantService
 {
-    // public function createVariant(array $data)
-    // {
-    //     return DB::transaction(function () use ($data) {
-    //         $variant = Variant::create([
-    //             'product_id' => $data['product_id'],
-    //             'sku'        => $data['sku'],
-    //             'price'      => $data['price'],
-    //             'discount'   => $data['discount'] ?? 0,
-    //             'stock'      => $data['stock'] ?? 0,
-    //         ]);
+    private function generateSkuFromSpec(array $data): string{
+        $sku = 'V' . $data['product_id'];
 
-    //         if (!empty($data['spec_values'])) {
-    //             foreach ($data['spec_values'] as $specValue) {
-    //                 VariantSpecValue::create([
-    //                     'variant_id'   => $variant->id,
-    //                     'spec_id'      => $specValue['spec_id'],
-    //                     'value_text'   => $specValue['value_text'] ?? null,
-    //                     'value_int'    => $specValue['value_int'] ?? null,
-    //                     'value_decimal'=> $specValue['value_decimal'] ?? null,
-    //                     'option_id'    => $specValue['option_id'] ?? null,
-    //                 ]);
-    //             }
-    //         }
+        if (!empty($data['spec_values'])) {
+            foreach ($data['spec_values'] as $spec) {
+                if (!empty($spec['value_text'])) {
+                    $sku .= '-' . strtoupper(substr($spec['value_text'], 0, 3));
+                } elseif (!empty($spec['value_int'])) {
+                    $sku .= '-' . $spec['value_int'];
+                } elseif (!empty($spec['value_decimal'])) {
+                    $sku .= '-' . str_replace('.', '', $spec['value_decimal']);
+                } elseif (!empty($spec['option_id'])) {
+                    $option = SpecOption::find($spec['option_id']);
+                    if ($option) {
+                        $sku .= '-' . strtoupper(substr($option->name, 0, 3));
+                    }
+                }
+            }
+        }
 
-    //         return $variant->load(['variantSpecValues.specification', 'variantSpecValues.spec_options']);
-    //     });
-    // }
+        // Tránh trùng SKU
+        $originalSku = $sku;
+        $i = 1;
+        while (Variant::where('sku', $sku)->exists()) {
+            $sku = $originalSku . '-' . $i;
+            $i++;
+        }
+
+        return $sku;
+    }
+
     public function createVariant(array $data){
         return DB::transaction(function () use ($data) {
+            $sku = $this->generateSkuFromSpec($data);
             $variant = Variant::create([
                 'product_id' => $data['product_id'],
-                'sku'        => $data['sku'],
+                'sku'        => $sku,
                 'price'      => $data['price'],
                 'discount'   => $data['discount'] ?? 0,
                 'stock'      => $data['stock'] ?? 0,
@@ -98,4 +103,61 @@ class VariantService
                       ->findOrFail($variantId);
     }
     
+
+    public function updateVariant(int $variantId, array $data){
+        return DB::transaction(function () use ($variantId, $data) {
+            $variant = Variant::findOrFail($variantId);
+
+            // Nếu cần cập nhật SKU dựa theo spec_values mới, tạo lại SKU
+            if (!empty($data['spec_values'])) {
+                $data['sku'] = $this->generateSkuFromSpec(array_merge(['product_id' => $variant->product_id], $data));
+            }
+
+            // Cập nhật thông tin chính của variant
+            $variant->update([
+                'sku'      => $data['sku'] ?? $variant->sku,
+                'price'    => $data['price'] ?? $variant->price,
+                'discount' => $data['discount'] ?? $variant->discount,
+                'stock'    => $data['stock'] ?? $variant->stock,
+            ]);
+
+            // Cập nhật spec_values nếu có
+            if (!empty($data['spec_values'])) {
+                foreach ($data['spec_values'] as $specValue) {
+                    // Xóa spec cũ cùng spec_id nếu có
+                    VariantSpecValue::where([
+                        'variant_id' => $variant->id,
+                        'spec_id' => $specValue['spec_id'],
+                    ])->delete();
+
+                    // Tạo spec_value mới
+                    VariantSpecValue::create([
+                        'variant_id'    => $variant->id,
+                        'spec_id'       => $specValue['spec_id'],
+                        'value_text'    => $specValue['value_text'] ?? null,
+                        'value_int'     => $specValue['value_int'] ?? null,
+                        'value_decimal' => $specValue['value_decimal'] ?? null,
+                        'option_id'     => $specValue['option_id'] ?? null,
+                    ]);
+                }
+            }
+
+            return $variant->load(['variantSpecValues.specification', 'variantSpecValues.spec_options']);
+        });
+    }
+
+    public function deleteVariant(int $variantId){
+        return DB::transaction(function () use ($variantId) {
+            $variant = Variant::findOrFail($variantId);
+
+            // Xóa tất cả spec_values liên quan
+            VariantSpecValue::where('variant_id', $variant->id)->delete();
+
+            // Xóa variant
+            $variant->delete();
+
+            return true;
+        });
+    }
+
 }

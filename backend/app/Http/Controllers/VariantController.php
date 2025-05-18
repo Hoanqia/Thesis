@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Services\VariantService;
 use Illuminate\Http\Request;
 use App\Exceptions\ApiExceptionHandler;
+use Illuminate\Support\Facades\Log;
 
 class VariantController extends Controller
 {
@@ -19,7 +20,7 @@ class VariantController extends Controller
         try {
             $validated = $request->validate([
                 'product_id' => 'required|exists:products,id',
-                'sku'        => 'required|string|unique:product_variants,sku',
+                'sku'        => 'nullable',
                 'price'      => 'required|numeric|min:0',
                 'discount'   => 'nullable|numeric|min:0',
                 'stock'      => 'nullable|integer|min:0',
@@ -76,4 +77,44 @@ class VariantController extends Controller
             return ApiExceptionHandler::handleException($e);
         }
     }
+
+    public function update(Request $request, $variantId){
+        try {
+            $validated = $request->validate([
+                'price'      => 'nullable|numeric|min:0',
+                'discount'   => 'nullable|numeric|min:0',
+                'stock'      => 'nullable|integer|min:0',
+                'spec_values' => 'nullable|array',
+                'spec_values.*.spec_id' => 'required|exists:specifications,id',
+                'spec_values.*.option_id' => 'nullable|exists:spec_options,id',
+                'spec_values.*.value_text' => 'nullable|string',
+                'spec_values.*.value_int' => 'nullable|integer',
+                'spec_values.*.value_decimal' => 'nullable|numeric',
+            ]);
+
+            $variant = $this->variantService->updateVariant($variantId, $validated);
+
+            return response()->json([
+                'message' => 'Cập nhật biến thể thành công',
+                'status' => 'success',
+                'data' => $variant,
+            ]);
+        } catch (\Exception $e) {
+            return ApiExceptionHandler::handleException($e);
+        }
+    }
+
+    public function destroy($variantId){
+        try {
+            $this->variantService->deleteVariant($variantId);
+
+            return response()->json([
+                'message' => 'Xóa biến thể thành công',
+                'status' => 'success',
+            ]);
+        } catch (\Exception $e) {
+            return ApiExceptionHandler::handleException($e);
+        }
+    }
+
 }

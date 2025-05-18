@@ -9,6 +9,7 @@ use App\Http\Controllers\CartController;
 use App\Http\Controllers\CustomerOrderController;
 use App\Http\Controllers\SpecificationController;
 use App\Http\Controllers\SpecOptionController;
+use App\Http\Controllers\VariantController;
 
 // use app\Http\Middleware\RoleMiddleware;
 use Illuminate\Http\Request;
@@ -72,12 +73,15 @@ Route::middleware(['auth:api'])->group(function () {
 
 
 
-            Route::delete('/spec-option/{id}',[SpecOptionController::class,'destroy']);
+            Route::delete('/spec-options/{id}',[SpecOptionController::class,'destroy']);
             Route::patch('/spec-options/{id}',[SpecOptionController::class,'update']);
             Route::get('/spec-options/{id}',[SpecOptionController::class,'get']);
             Route::post('/spec-options',[SpecOptionController::class,'store']);
             Route::get('/spec-options',[SpecOptionController::class,'index']);
-            
+
+            Route::get('/{productId}/variants',[VariantController::class,'getByProduct']);
+            Route::get('/variants/{variantId}',[VariantController::class,'get']);
+            Route::post('/variants',[VariantController::class,'store']);
         });
     });
     Route::middleware('role:customer')->group(function (){

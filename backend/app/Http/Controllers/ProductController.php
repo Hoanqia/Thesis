@@ -111,4 +111,25 @@ class ProductController extends Controller
             return ApiExceptionHandler::handleException($e);
         }
     }
+    public function index(Request $request){
+        try {
+            $products = $request->filled('keyword') 
+            ? $this->productService->look_for($request->keyword)
+            : $this->productService->getAll();
+
+            if($products->isEmpty()){
+                return response()->json([
+                    'message' => 'Không có dữ liệu',
+                    'status' => 'success',
+                ],204);
+            }
+            return response()->json([
+                'message' => 'Lấy dữ liệu thành công',
+                'status' => 'success',
+                'data' => $products,
+            ],200);
+        }catch(\Exception $e){
+            return ApiExceptionHandler::handleException($e);
+        }
+    }
 }

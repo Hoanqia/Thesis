@@ -46,7 +46,21 @@ class ProductService
         return Product::with(['brand', 'category', 'variants'])->where('slug', $slug)->first();
     }
 
-   
+   public function look_for(string $keyword){
+        return Product::with(['brand', 'category'])
+            ->where(function ($query) use ($keyword) {
+                $query->where('name', 'like', '%' . $keyword . '%')
+                    ->orWhere('slug', 'like', '%' . $keyword . '%')
+                    ->orWhereHas('category', function ($q) use ($keyword) {
+                        $q->where('name', 'like', '%' . $keyword . '%');
+                    })
+                    ->orWhereHas('brand', function ($q) use ($keyword) {
+                        $q->where('name', 'like', '%' . $keyword . '%');
+                    });
+            })
+            ->get();
+    }
+
   
 
     public function update(string $slug, array $data)

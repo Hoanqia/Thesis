@@ -22,4 +22,7 @@ class Specification extends Model
     public function spec_options (){
         return $this->hasMany(SpecOption::class);
     }
+    public function variant_spec_values(){
+        return $this->hasMany(VariantSpecValue::class);
+    }
 }

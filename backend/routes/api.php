@@ -52,7 +52,14 @@ Route::middleware(['auth:api'])->group(function () {
             Route::get('/brands',[BrandController::class,'getAll']);
             
             
+
+            Route::get('/products/{slug}',[ProductController::class,'get']);
+            Route::patch('/products/{slug}',[ProductController::class,'edit']);
+            Route::delete('/products/{slug}',[ProductController::class,'destroy']);
             Route::post('/products',[ProductController::class,'store']);
+            Route::get('/products',[ProductController::class,'getAll']);
+            Route::get('/products/search',[ProductController::class,'index']);
+           
         });
     });
     Route::middleware('role:customer')->group(function (){

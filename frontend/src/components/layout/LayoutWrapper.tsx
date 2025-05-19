@@ -15,7 +15,7 @@ export default function LayoutWrapper({
   return (
     <>
       { !isAdmin && <Navbar /> }
-      <main className="flex-1 w-full px-4">{children}</main>
+      <main className="flex-1 w-full ">{children}</main>
       { !isAdmin && <Footer /> }
     </>
   )

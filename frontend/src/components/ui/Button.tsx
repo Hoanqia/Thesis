@@ -1,20 +1,29 @@
-type ButtonProps = {
-  children: React.ReactNode
-  onClick: () => void
-  disabled?: boolean
-  className?: string
-}
+import React from "react";
+import clsx from "clsx"; // nếu chưa cài: npm install clsx
 
-export const Button = ({ children, onClick, disabled, className }: ButtonProps) => {
+type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: "default" | "destructive" | "ghost";
+};
+
+export const Button = ({
+  children,
+  className,
+  variant = "default",
+  ...props
+}: ButtonProps) => {
+  const baseClass = "px-4 py-2 rounded text-sm font-medium focus:outline-none";
+  const variantClass = {
+    default: "bg-blue-600 text-white hover:bg-blue-700",
+    destructive: "bg-red-600 text-white hover:bg-red-700",
+    ghost: "bg-transparent text-gray-700 hover:bg-gray-100 border border-gray-300",
+  };
+
   return (
     <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`py-2 px-4 rounded-xl text-white font-semibold transition ${
-        disabled ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
-      } ${className}`}
+      {...props}
+      className={clsx(baseClass, variantClass[variant], className)}
     >
       {children}
     </button>
-  )
-}
+  );
+};

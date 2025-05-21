@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import CrudGeneric, { CrudItem } from "@/components/ui/CrudGeneric";
+import { useRouter } from "next/navigation";
 
 const fakeCategories: CrudItem[] = [
   { id: 1, name: "Điện thoại", slug: "dien-thoai", status: true },
@@ -9,6 +10,8 @@ const fakeCategories: CrudItem[] = [
 ];
 
 export default function CategoriesPage() {
+  const router = useRouter();  // ← thêm dòng này
+
   const [categories, setCategories] = useState(fakeCategories);
 
   const [search, setSearch] = useState("");
@@ -63,6 +66,16 @@ export default function CategoriesPage() {
         onUpdate={handleUpdate}
         onDelete={handleDelete}
         onToggleStatus={handleToggleStatus}
+        renderActions={(cat) => (       // ← thêm prop này
+          <button
+            className="text-indigo-600 hover:underline"
+            onClick={() =>
+              router.push(`/admin/categories/${cat.id}/specifications`)
+            }
+          >
+            Xem thuộc tính
+          </button>
+        )}
       />
     </div>
   );

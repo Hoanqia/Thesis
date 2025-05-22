@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
+use Laravel\Socialite\Facades\Socialite;
 
 
 
@@ -29,7 +30,6 @@ Route::prefix('auth')->group(function () {
     Route::post('register',[UserController::class, 'register']);
     Route::post('login',[UserController::class, 'login']);
     Route::post('refresh-token', [UserController::class, 'refreshToken']);
-
     // Các route cần xác thực token JWT
     Route::middleware('auth:api')->group(function () {
         Route::post('logout',[UserController::class, 'logout']);

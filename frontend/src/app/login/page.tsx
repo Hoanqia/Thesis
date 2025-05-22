@@ -39,26 +39,29 @@ export default function LoginPage() {
   const router = useRouter()
 
   const handleLogin = async () => {
-    setLoading(true)
-    try {
-      await login({ email, password }) // không cần lấy token trả về
+  setLoading(true)
+  try {
+    const { user } = await login({ email, password })
+    if (user.role === 'admin' || user.role === 'ladmin') {
+      router.push('/ladmin')
+    } else {
       router.push('/')
-    } catch (error: any) {
-      alert(error.message || 'Đăng nhập thất bại!')
-    } finally {
-      setLoading(false)
     }
+  } catch (error: any) {
+    alert(error.message || 'Đăng nhập thất bại!')
+  } finally {
+    setLoading(false)
   }
+}
+
 
   const handleRegisterRedirect = () => {
     router.push('/register')
   }
 
   const handleGoogleLogin = () => {
-    // TODO: Thêm logic OAuth2 Google ở đây
-    alert('Chức năng đăng nhập Google sẽ được thêm sau')
-  }
-
+  window.location.href = 'http://localhost:8000/auth/google';
+}
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-md p-8">

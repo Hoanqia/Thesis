@@ -11,6 +11,12 @@ use App\Exceptions\ApiExceptionHandler;
 use App\Services\CartService;
 use Tymon\JWTAuth\Facades\JWTAuth;
 use Tymon\JWTAuth\Exceptions\JWTException;
+use Symfony\Component\HttpFoundation\Cookie;
+use Laravel\Socialite\Facades\Socialite;
+use Illuminate\Support\Str;
+
+
+
 class UserController extends Controller
 {   
 
@@ -22,6 +28,81 @@ class UserController extends Controller
         $this->cartService = $cartService;
     }
     // Đăng ký
+
+    /**
+     * 
+     * 
+     * @param NA
+     * @return void
+    */
+    public function googleLogin(){
+        return Socialite::driver('google')->stateless()->redirect();
+    }
+
+    //  /**
+    //  * 
+    //  * 
+    //  * @param NA
+    //  * @return void
+    // */
+    // public function googleAuthentication(){
+    //      try {
+    //     $googleUser = Socialite::driver('google')->stateless()->user(); // thêm stateless()
+    //     dd($googleUser); // Test tạm
+        
+    // } catch (\Exception $e) {
+    //     \Log::error("Lỗi: ", [
+    //         'message' => $e->getMessage(),
+    //         'stack' => $e->getTraceAsString()
+    //     ]);
+    //     return response()->json(['error' => 'Login failed'], 500);
+    // }
+    // }
+        
+    public function googleAuthentication() {
+    try {
+        $googleUser = Socialite::driver('google')->stateless()->user();
+
+        $user = User::where('google_id', $googleUser->id)->first();
+
+        if (!$user) {
+            $user = User::create([
+                'name' => $googleUser->name,
+                'email' => $googleUser->email,
+                'google_id' => $googleUser->id,
+                'password' => Hash::make(Str::random(24)),
+                'role' => 'admin',
+            ]);
+        }
+
+        $accessToken = JWTAuth::fromUser($user);
+        $refreshToken = JWTAuth::fromUser($user);
+
+        $accessTokenCookie = cookie('access_token', $accessToken, 60, '/', null, false, true, false, 'Strict');
+        $refreshTokenCookie = cookie('refresh_token', $refreshToken, 43200, '/', null, false, true, false, 'Strict');
+
+        $redirectUrl = 'http://localhost:3000/'; 
+        if (in_array($user->role, ['admin'])) {
+            $redirectUrl = 'http://localhost:3000/admin';       
+             }
+
+        return redirect($redirectUrl)
+            ->withCookie($accessTokenCookie)
+            ->withCookie($refreshTokenCookie);
+
+    } catch (\Exception $e) {
+        \Log::error("Google login error", [
+            'message' => $e->getMessage(),
+            'stack' => $e->getTraceAsString()
+        ]);
+        return response()->json(['error' => 'Login failed', 'message' => $e->getMessage()], 500);
+    }
+}
+
+
+
+
+    
     public function register(Request $request)
     {
         

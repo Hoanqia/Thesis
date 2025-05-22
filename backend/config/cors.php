@@ -13,13 +13,16 @@ return [
     */
 
     // Áp dụng CORS cho các đường dẫn API
-    'paths' => ['api/*'],
+    'paths' => ['api/*', 'oauth/*'],
 
     // Cho phép tất cả các method HTTP
     'allowed_methods' => ['*'],
 
     // Cho phép tất cả các origin, hoặc thay '*' bằng danh sách domain frontend
-    'allowed_origins' => ['*'],
+    'allowed_origins' => [
+        'http://localhost:3000',
+        'https://your-frontend-domain.com',
+    ],
 
     // Patterns cho origin, nếu cần
     'allowed_origins_patterns' => [],
@@ -34,6 +37,6 @@ return [
     'max_age' => 0,
 
     // Cho phép cookies, authorization headers (nếu dùng Sanctum hoặc cookie-based auth)
-    'supports_credentials' => false,
+    'supports_credentials' => true,
 
 ];

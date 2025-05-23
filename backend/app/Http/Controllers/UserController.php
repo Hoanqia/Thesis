@@ -59,7 +59,7 @@ class UserController extends Controller
     // }
     // }
         
-    public function googleAuthentication() {
+   public function googleAuthentication(){
     try {
         $googleUser = Socialite::driver('google')->stateless()->user();
 
@@ -71,33 +71,31 @@ class UserController extends Controller
                 'email' => $googleUser->email,
                 'google_id' => $googleUser->id,
                 'password' => Hash::make(Str::random(24)),
-                'role' => 'admin',
+                'role' => 'customer',
             ]);
         }
 
         $accessToken = JWTAuth::fromUser($user);
         $refreshToken = JWTAuth::fromUser($user);
+        // Redirect về frontend với access_token và role dưới dạng query param
+        $queryParams = http_build_query([
+        'access_token' => $accessToken,
+        'refresh_token' => $refreshToken,
+        'role' => $user->role,
+    ]);
 
-        $accessTokenCookie = cookie('access_token', $accessToken, 60, '/', null, false, true, false, 'Strict');
-        $refreshTokenCookie = cookie('refresh_token', $refreshToken, 43200, '/', null, false, true, false, 'Strict');
+    $redirectUrl = 'http://localhost:3000/oauth-callback?' . $queryParams;
 
-        $redirectUrl = 'http://localhost:3000/'; 
-        if (in_array($user->role, ['admin'])) {
-            $redirectUrl = 'http://localhost:3000/admin';       
-             }
 
-        return redirect($redirectUrl)
-            ->withCookie($accessTokenCookie)
-            ->withCookie($refreshTokenCookie);
+        return redirect()->to($redirectUrl);
 
     } catch (\Exception $e) {
-        \Log::error("Google login error", [
-            'message' => $e->getMessage(),
-            'stack' => $e->getTraceAsString()
-        ]);
-        return response()->json(['error' => 'Login failed', 'message' => $e->getMessage()], 500);
+        return ApiExceptionHandler::handleException($e);
     }
 }
+
+
+
 
 
 
@@ -184,42 +182,49 @@ class UserController extends Controller
         }
     }
     // Đăng nhập
-    public function login(Request $request)
+   public function login(Request $request)
 {
     Log::info('Login attempt start', ['request' => $request->all()]);
 
-    // Validate the credentials from the request
+    // Validate
     $credentials = $request->validate([
         'email'    => 'required|email',
         'password' => 'required|string',
     ]);
     Log::info('Credentials validated', ['credentials' => $credentials]);
 
-    // Attempt to create a token using JWTAuth
-    if (!$token = JWTAuth::attempt($credentials)) {
+    // Attempt login
+    if (! $token = JWTAuth::attempt($credentials)) {
         return response()->json([
             'status'  => 'error',
             'message' => 'Email hoặc mật khẩu không đúng'
         ], 401);
     }
 
-    // Lấy thông tin người dùng đã đăng nhập
+    // Lấy user, tạo cart nếu cần
     $user = Auth::user();
-    if($user->role === "customer"){
-       $cart =  $this->cartService->getOrCreateCart();
+    if ($user->role === 'customer') {
+        $cart = $this->cartService->getOrCreateCart();
     }
     Log::info('Auth attempt success', ['user_id' => $user->id]);
 
-    // Tạo lại refresh token
-    $refreshToken = JWTAuth::fromUser($user); // Chỉ cần tạo một lần khi đăng nhập
+    // Tạo refresh token
+    $refreshToken = JWTAuth::fromUser($user);
 
-    // Trả về cả access token và refresh token
+    // Tạo cookie
+   
+
+
+    // Trả về JSON kèm set-cookie
     return response()->json([
-        'status' => 'success',
-        'user'   => $user,
-        'token'  => $token,             // Trả về access token
-        'refresh_token' => $refreshToken // Trả về refresh token
-    ], 200);
+        'status'        => 'success',
+        'user'          => $user,
+        // bạn có thể bỏ token khỏi body nếu không cần client đọc
+        'token'         => $token,
+        'refresh_token' => $refreshToken,
+    ], 200)
+    ->withCookie($accessCookie)
+    ->withCookie($refreshCookie);
 }
 
     
@@ -262,61 +267,58 @@ public function refreshToken(Request $request)
 }
 
     
-public function logout()
+public function logout(Request $request)
 {
-    Log::info('Bắt đầu hàm logout');
-
     try {
-        // Invalidate token hiện tại
-        JWTAuth::parseToken()->invalidate();
+        $token = $request->bearerToken(); // Lấy token từ header Authorization
 
-        Log::info('Token đã được invalidate thành công.');
+        if (!$token) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Token không tồn tại trong header Authorization'
+            ], 400);
+        }
+
+        JWTAuth::setToken($token)->invalidate();
 
         return response()->json([
             'status'  => 'success',
             'message' => 'Đăng xuất thành công'
         ]);
     } catch (JWTException $e) {
-        Log::error('Lỗi khi logout: ' . $e->getMessage());
-
         return response()->json([
             'status'  => 'error',
             'message' => 'Không thể đăng xuất, token lỗi hoặc hết hạn'
         ], 401);
     } catch (\Exception $e) {
-        Log::error('Lỗi server khi logout: ' . $e->getMessage());
-
-        return response()->json([
-            'status'  => 'error',
-            'message' => 'Server error'
-        ], 500);
+        return ApiExceptionHandler::handleException($e);
     }
 }
 
 
+
+
     // Lấy thông tin cá nhân
-    public function getPersonalInformation()
-    {
+   public function getPersonalInformation(){
         Log::info('Bắt đầu hàm getPersonalInformation');
-    
+
         try {
-            // Lấy user từ token JWT
-            $user = JWTAuth::parseToken()->authenticate();
-    
+            $user = auth()->user(); // lấy từ middleware đã set sẵn
+
             if (!$user) {
-                Log::warning('Token hợp lệ nhưng không tìm thấy user.');
+                Log::warning('Không tìm thấy user từ auth()->user().');
                 return response()->json([
                     'status' => 'fail',
                     'message' => 'User not found'
                 ], 404);
             }
-    
+
             Log::info('Lấy được thông tin user:', [
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email
             ]);
-    
+
             return response()->json([
                 'status' => 'success',
                 'user' => [
@@ -325,22 +327,11 @@ public function logout()
                     'email' => $user->email,
                 ]
             ]);
-        } catch (JWTException $e) {
-            Log::error('Lỗi JWT: ' . $e->getMessage());
-    
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Token is invalid or expired'
-            ], 401);
         } catch (\Exception $e) {
-            Log::error('Lỗi server trong getPersonalInformation: ' . $e->getMessage());
-    
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Server error'
-            ], 500);
+            return ApiExceptionHandler::handleException($e);
         }
     }
+
     // Đổi mật khẩu
     public function changePassword(Request $request)
     {

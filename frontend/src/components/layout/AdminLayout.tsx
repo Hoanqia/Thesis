@@ -1,6 +1,7 @@
 "use client";
 
 import React, { ReactNode } from "react";
+import { Toaster } from "react-hot-toast";
 import {
   User,
   Layers,
@@ -132,6 +133,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         {/* Page content */}
         <main className="flex-1 p-6 overflow-auto">{children}</main>
       </div>
+       {/* Toast container */}
+      <Toaster position="top-right" reverseOrder={false} />
     </div>
   );
 }

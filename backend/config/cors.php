@@ -21,7 +21,6 @@ return [
     // Cho phép tất cả các origin, hoặc thay '*' bằng danh sách domain frontend
     'allowed_origins' => [
         'http://localhost:3000',
-        'https://your-frontend-domain.com',
     ],
 
     // Patterns cho origin, nếu cần

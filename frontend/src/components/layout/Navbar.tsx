@@ -1,15 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import Cookies from "js-cookie";
 import { Menu, X, ShoppingCart, Bell, ChevronDown } from "lucide-react";
-
+import { axiosRequest } from '@/lib/axiosRequest';
+import { handleLogout } from "@/features/auth/api/logout";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 
 import {
@@ -18,9 +19,35 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 
+
+const logoutHandler = async () => {
+  await handleLogout();
+}
+
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const isLoggedIn = true;
+   const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+  const checkAuth = async () => {
+    try {
+      const res = await axiosRequest('auth/me', 'GET');
+      console.log('Response /auth/me:', res);  // In ra response từ API
+      if (res && res.user) {
+        console.log('User is logged in:', res.user);
+        setIsLoggedIn(true);
+      } else {
+        console.log('No user data, not logged in');
+        setIsLoggedIn(false);
+      }
+    } catch (error) {
+      console.log('Error when calling /auth/me:', error);
+      setIsLoggedIn(false);
+    }
+  };
+  checkAuth();
+}, []);
+
 
   return (
     <header className="bg-white shadow-md">
@@ -100,7 +127,7 @@ export default function Navbar() {
             </PopoverContent>
           </Popover>
 
-          {/* User dropdown */}
+          {/* User dropdown or Login button */}
           {isLoggedIn ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -120,11 +147,11 @@ export default function Navbar() {
                     Settings
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => {
-                  // TODO: logout logic
-                }}>
-                  Logout
-                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={async () => {
+                    await handleLogout();
+                  }}>
+                    Logout
+                  </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
@@ -155,10 +182,13 @@ export default function Navbar() {
               <>
                 <Link href="/profile" onClick={() => setMobileMenuOpen(false)} className="block text-base font-semibold text-gray-900 hover:text-blue-600">Profile</Link>
                 <Link href="/settings" onClick={() => setMobileMenuOpen(false)} className="block text-base font-semibold text-gray-900 hover:text-blue-600">Settings</Link>
-                <button onClick={() => {
-                  setMobileMenuOpen(false);
-                  // TODO: logout
-                }} className="w-full text-left block text-base font-semibold text-gray-900 hover:text-blue-600">
+                <button
+                  onClick={async () => {
+                    setMobileMenuOpen(false);
+                    await handleLogout(); // Gọi hàm logout
+                  }}
+                  className="w-full text-left block text-base font-semibold text-gray-900 hover:text-blue-600"
+                >
                   Logout
                 </button>
               </>
@@ -173,212 +203,4 @@ export default function Navbar() {
     </header>
   );
 }
-
-// "use client";
-
-// import Link from "next/link";
-// import { useState, useEffect, useRef } from "react";
-// import { Menu, X, ShoppingCart, ChevronDown, Bell } from "lucide-react";
-
-// export default function Navbar() {
-//   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-//   const [productDropdownOpen, setProductDropdownOpen] = useState(false);
-//   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
-//   const [notificationOpen, setNotificationOpen] = useState(false);
-
-//   const isLoggedIn = true;
-
-//   const productRef = useRef<HTMLDivElement>(null);
-//   const userRef = useRef<HTMLDivElement>(null);
-//   const notificationRef = useRef<HTMLDivElement>(null);
-//   const timeoutRef = useRef<number | null>(null);
-
-//   useEffect(() => {
-//     function handleClickOutside(event: MouseEvent) {
-//       if (productRef.current && !productRef.current.contains(event.target as Node)) {
-//         setProductDropdownOpen(false);
-//       }
-//       if (userRef.current && !userRef.current.contains(event.target as Node)) {
-//         setUserDropdownOpen(false);
-//       }
-//       if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
-//         setNotificationOpen(false);
-//       }
-//     }
-//     document.addEventListener("mousedown", handleClickOutside);
-//     return () => document.removeEventListener("mousedown", handleClickOutside);
-//   }, []);
-
-//   function handleProductMouseLeave() {
-//     timeoutRef.current = window.setTimeout(() => {
-//       setProductDropdownOpen(false);
-//     }, 300);
-//   }
-
-//   function handleProductMouseEnter() {
-//     if (timeoutRef.current) {
-//       clearTimeout(timeoutRef.current);
-//       timeoutRef.current = null;
-//     }
-//     setProductDropdownOpen(true);
-//   }
-
-//   return (
-//     <header className="bg-white shadow-md">
-//       <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 lg:px-8" aria-label="Global">
-//         <div className="flex lg:flex-1">
-//           <Link href="/" className="text-xl font-bold text-blue-600">E-Shop</Link>
-//         </div>
-
-//         {/* Hamburger (mobile) */}
-//         <div className="flex lg:hidden">
-//           <button onClick={() => setMobileMenuOpen(true)} className="text-gray-700 hover:text-gray-900">
-//             <Menu className="w-6 h-6" />
-//           </button>
-//         </div>
-
-//         {/* Desktop Menu */}
-//         <div className="hidden lg:flex lg:gap-x-6 items-center">
-//           {/* Dropdown Sản phẩm */}
-//           <div
-//             className="relative"
-//             ref={productRef}
-//             onMouseEnter={handleProductMouseEnter}
-//             onMouseLeave={handleProductMouseLeave}
-//           >
-//             <button
-//               className="inline-flex items-center text-sm font-semibold text-gray-700 hover:text-blue-500 focus:outline-none"
-//               aria-haspopup="true"
-//               aria-expanded={productDropdownOpen}
-//               type="button"
-//               onClick={() => setProductDropdownOpen(!productDropdownOpen)}
-//             >
-//               Sản phẩm
-//               <ChevronDown className="ml-1 w-4 h-4" />
-//             </button>
-
-//             {productDropdownOpen && (
-//               <div className="absolute left-0 mt-2 w-56 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 z-20">
-//                 <div className="py-1" role="menu" aria-orientation="vertical">
-//                   <Link href="/products/phones" className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-100" onClick={() => setProductDropdownOpen(false)}>Điện thoại</Link>
-//                   <Link href="/products/laptops" className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-100" onClick={() => setProductDropdownOpen(false)}>Laptop</Link>
-//                   <Link href="/products/headphones" className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-100" onClick={() => setProductDropdownOpen(false)}>Tai nghe</Link>
-//                 </div>
-//               </div>
-//             )}
-//           </div>
-
-//           <Link href="/contact" className="text-sm font-semibold text-gray-700 hover:text-blue-500">Liên hệ</Link>
-
-//           <Link href="/cart" className="flex items-center gap-1 text-sm font-semibold text-gray-700 hover:text-blue-500">
-//             <ShoppingCart className="w-5 h-5" />
-//             {/* Giỏ hàng */}
-//           </Link>
-
-//           {/* Notification Bell */}
-//           <div className="relative" ref={notificationRef}>
-//             <button
-//               className="ml-4 text-gray-700 hover:text-blue-500 relative"
-//               onClick={() => setNotificationOpen(!notificationOpen)}
-//               aria-haspopup="true"
-//               aria-expanded={notificationOpen}
-//               type="button"
-//             >
-//               <Bell className="w-5 h-5" />
-//               {/* Badge số lượng */}
-//               <span className="absolute -top-1 -right-2 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
-//                 3
-//               </span>
-//             </button>
-
-//             {notificationOpen && (
-//               <div className="absolute right-0 mt-2 w-72 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 z-30">
-//                 <div className="py-2 px-3 text-sm text-gray-800 font-semibold border-b">Thông báo</div>
-//                 <ul className="max-h-60 overflow-y-auto">
-//                   <li className="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer">Đơn hàng #1234 đã được xác nhận.</li>
-//                   <li className="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer">Bạn có mã giảm giá mới.</li>
-//                   <li className="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer">Sản phẩm bạn yêu thích đã giảm giá.</li>
-//                 </ul>
-//               </div>
-//             )}
-//           </div>
-
-//           {/* User dropdown */}
-//           {isLoggedIn ? (
-//             <div className="relative" ref={userRef}>
-//               <button
-//                 className="ml-4 flex items-center rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-//                 onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-//                 aria-haspopup="true"
-//                 aria-expanded={userDropdownOpen}
-//                 type="button"
-//               >
-//                 <img src="/avatar-default.png" alt="User Avatar" className="h-8 w-8 rounded-full" />
-//               </button>
-
-//               {userDropdownOpen && (
-//                 <div className="absolute right-0 mt-2 w-40 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 z-20">
-//                   <div className="py-1" role="menu">
-//                     <Link href="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-100" onClick={() => setUserDropdownOpen(false)}>Profile</Link>
-//                     <Link href="/settings" className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-100" onClick={() => setUserDropdownOpen(false)}>Settings</Link>
-//                     <button
-//                       onClick={() => {
-//                         setUserDropdownOpen(false);
-//                         // TODO: logout logic
-//                       }}
-//                       className="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-blue-100"
-//                     >
-//                       Logout
-//                     </button>
-//                   </div>
-//                 </div>
-//               )}
-//             </div>
-//           ) : (
-//             <Link href="/login" className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
-//               Đăng nhập
-//             </Link>
-//           )}
-//         </div>
-//       </nav>
-
-//       {/* Mobile menu */}
-//       {mobileMenuOpen && (
-//         <div className="lg:hidden fixed inset-0 z-50 bg-white px-6 py-6 overflow-y-auto">
-//           <div className="flex items-center justify-between mb-6">
-//             <Link href="/" className="text-xl font-bold text-blue-600">E-Shop</Link>
-//             <button onClick={() => setMobileMenuOpen(false)} className="text-gray-700 hover:text-gray-900">
-//               <X className="w-6 h-6" />
-//             </button>
-//           </div>
-//           <div className="space-y-4">
-//             <Link href="/products" onClick={() => setMobileMenuOpen(false)} className="block text-base font-semibold text-gray-900 hover:text-blue-600">Sản phẩm</Link>
-//             <Link href="/contact" onClick={() => setMobileMenuOpen(false)} className="block text-base font-semibold text-gray-900 hover:text-blue-600">Liên hệ</Link>
-//             <Link href="/cart" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-1 block text-base font-semibold text-gray-900 hover:text-blue-600">
-//               <ShoppingCart className="w-5 h-5" />
-//               Giỏ hàng
-//             </Link>
-//             {isLoggedIn ? (
-//               <>
-//                 <Link href="/profile" onClick={() => setMobileMenuOpen(false)} className="block text-base font-semibold text-gray-900 hover:text-blue-600">Profile</Link>
-//                 <Link href="/settings" onClick={() => setMobileMenuOpen(false)} className="block text-base font-semibold text-gray-900 hover:text-blue-600">Settings</Link>
-//                 <button onClick={() => {
-//                   setMobileMenuOpen(false);
-//                   // TODO: logout
-//                 }} className="w-full text-left block text-base font-semibold text-gray-900 hover:text-blue-600">
-//                   Logout
-//                 </button>
-//               </>
-//             ) : (
-//               <Link href="/login" onClick={() => setMobileMenuOpen(false)} className="block rounded-md bg-blue-600 px-4 py-2 text-base font-semibold text-white hover:bg-blue-700">
-//                 Đăng nhập
-//               </Link>
-//             )}
-//           </div>
-//         </div>
-//       )}
-//     </header>
-//   );
-// }
-
 

@@ -2,17 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { Swiper, SwiperSlide } from 'swiper/react';
-import SwiperCore from 'swiper';
 import { Autoplay, Navigation, Pagination } from 'swiper/modules';
 import 'swiper/css';
-
-// Activa los módulos de Swiper
-SwiperCore.use([Navigation, Pagination, Autoplay]);
-import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/pagination";
 
 import ProductCard, { Product } from "./ProductCard";
+import { axiosRequest } from "@/lib/axiosRequest";  // Đường dẫn chỉnh đúng vị trí file axiosRequest.ts
 
 type ApiVariant = { price: string; discount: string };
 type ApiProduct = {
@@ -28,12 +24,10 @@ export default function FeaturedCarousel() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/api/featured-products")
-      .then((res) => {
-        if (!res.ok) throw new Error("Lấy dữ liệu thất bại");
-        return res.json();
-      })
-      .then((json) => {
+    const fetchProducts = async () => {
+      try {
+        const json = await axiosRequest<{ data: ApiProduct[] }>('featured-products', 'GET');
+
         const mapped: Product[] = json.data.map((p: ApiProduct) => {
           const v = p.variants[0];
           const priceNum = parseFloat(v.price) - parseFloat(v.discount);
@@ -44,10 +38,16 @@ export default function FeaturedCarousel() {
             price: Math.round(priceNum),
           };
         });
+
         setProducts(mapped);
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
+      } catch (err: any) {
+        setError(err.message || "Lấy dữ liệu thất bại");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
   }, []);
 
   if (loading) return <p>Đang tải carousel…</p>;

@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal } from "lucide-react";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { CrudModal } from "@/components/ui/CrudModal";
 
 export interface CrudItem {
@@ -45,6 +45,11 @@ export default function CrudGeneric<T extends CrudItem>({
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<T | null>(null);
+
+  // Sync data state khi initialData thay đổi
+  useEffect(() => {
+    setData(initialData);
+  }, [initialData]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return data;
@@ -84,10 +89,11 @@ export default function CrudGeneric<T extends CrudItem>({
     setIsModalOpen(true);
   };
 
+  // Sửa toggle status từ boolean sang số 1/0
   const handleToggleStatus = (id: number) => {
     setData((prev) =>
       prev.map((d) =>
-        d.id === id ? { ...d, status: !d.status } : d
+        d.id === id ? { ...d, status: d.status === 1 ? 0 : 1 } : d
       )
     );
     onToggleStatus?.(id);
@@ -210,6 +216,7 @@ function SearchBar({ value, onChange, placeholder }: SearchBarProps) {
     </div>
   );
 }
+
 
 
 

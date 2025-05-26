@@ -14,7 +14,6 @@ type ApiVariant = { price: string; discount: string };
 type ApiProduct = {
   id: number;
   name: string;
-  image: string | null;
   variants: ApiVariant[];
 };
 
@@ -30,12 +29,9 @@ export default function FeaturedCarousel() {
 
         const mapped: Product[] = json.data.map((p: ApiProduct) => {
           const v = p.variants[0];
-          const priceNum = parseFloat(v.price) - parseFloat(v.discount);
           return {
             id: p.id,
             name: p.name,
-            image: p.image || "/placeholder.jpg",
-            price: Math.round(priceNum),
           };
         });
 

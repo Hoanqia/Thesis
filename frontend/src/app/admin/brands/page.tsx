@@ -2,15 +2,17 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import CrudGeneric, { CrudItem } from "@/components/ui/CrudGeneric";
-import { axiosRequest } from "@/lib/axiosRequest";
 import toast from "react-hot-toast";
 
-interface Brand {
-  id: number;
-  name: string;
-  slug: string;
-  status: number; // backend trả 0/1
-}
+// Import API function và interface
+import {
+  Brand,
+  fetchBrands,
+  createBrand,
+  updateBrand,
+  deleteBrand,
+  toggleBrandStatus,
+} from "@/features/brands/api/brandApi";
 
 interface UIBrand extends CrudItem {
   name: string;
@@ -21,21 +23,19 @@ interface UIBrand extends CrudItem {
 export default function BrandsPage() {
   const [brands, setBrands] = useState<UIBrand[]>([]);
 
-  // Hàm fetch dữ liệu brand, tái sử dụng ở nhiều chỗ
-  const fetchBrands = () => {
-    axiosRequest<{
-      message: string;
-      status: string;
-      data: Brand[];
-    }>("/admin/brands", "GET")
-      .then(({ data }) => {
-        const ui = data.map((b) => ({
-          id: b.id,
-          name: b.name,
-          slug: b.slug,
-          status: Boolean(b.status),
-        }));
-        setBrands(ui);
+  // Chuyển Brand (status number) sang UIBrand (status boolean)
+  const mapToUIBrand = (brand: Brand): UIBrand => ({
+    id: brand.id,
+    name: brand.name,
+    slug: brand.slug,
+    status: brand.status === 1,
+  });
+
+  // Hàm fetch dữ liệu brand
+  const loadBrands = () => {
+    fetchBrands()
+      .then((data) => {
+        setBrands(data.map(mapToUIBrand));
       })
       .catch((err) => {
         toast.error("Failed to fetch brands");
@@ -43,34 +43,33 @@ export default function BrandsPage() {
       });
   };
 
-  // Lần đầu tải trang thì gọi fetchBrands
   useEffect(() => {
-    fetchBrands();
+    loadBrands();
   }, []);
 
   const filtered = useMemo(() => brands, [brands]);
 
-  // Tạo mới, mặc định status = 1
-  const handleCreate = (item: Omit<UIBrand, "id" | "slug">) => {
-    const payload = { ...item, status: 1 };
-    axiosRequest<Brand>("/admin/brands", "POST", payload)
-      .then(() => {
-        toast.success("Brand created successfully!");
-        fetchBrands(); // reload lại danh sách sau khi tạo
-      })
-      .catch((err) => {
-        toast.error("Failed to create brand");
-        console.error("Create failed:", err);
-      });
-  };
+  // Tạo mới brand, status mặc định true (1)
+ const handleCreate = (item: Omit<UIBrand, "id" | "slug" | "status">) => {
+  // Chỉ gửi name vì status có mặc định backend
+  createBrand({ name: item.name })
+    .then(() => {
+      toast.success("Brand created successfully!");
+      loadBrands();
+    })
+    .catch((err) => {
+      toast.error("Failed to create brand");
+      console.error("Create failed:", err);
+    });
+};
 
-  // Cập nhật
+
+  // Cập nhật brand
   const handleUpdate = (id: number, item: Omit<UIBrand, "id">) => {
-    const payload = { ...item, status: item.status ? 1 : 0 };
-    axiosRequest<Brand>(`/admin/brands/${item.slug}`, "PATCH", payload)
+    updateBrand(item.slug, { ...item, status: item.status ? 1 : 0 })
       .then(() => {
         toast.success("Brand updated successfully!");
-        fetchBrands(); // reload lại danh sách sau khi cập nhật
+        loadBrands();
       })
       .catch((err) => {
         toast.error("Failed to update brand");
@@ -78,14 +77,15 @@ export default function BrandsPage() {
       });
   };
 
-  // Xóa
+  // Xóa brand
   const handleDelete = (id: number) => {
     const brand = brands.find((b) => b.id === id);
     if (!brand) return;
-    axiosRequest<void>(`/admin/brands/${brand.slug}`, "DELETE")
+
+    deleteBrand(brand.slug)
       .then(() => {
         toast.success("Brand deleted successfully!");
-        fetchBrands(); // reload lại danh sách sau khi xóa
+        loadBrands();
       })
       .catch((err) => {
         toast.error("Failed to delete brand");
@@ -93,20 +93,22 @@ export default function BrandsPage() {
       });
   };
 
-  // Chuyển trạng thái
+  // Toggle trạng thái brand
   const handleToggleStatus = (id: number) => {
     const brand = brands.find((b) => b.id === id);
     if (!brand) return;
 
-    const updatedStatus = !brand.status;
-    const payload = { ...brand, status: updatedStatus ? 1 : 0 };
-
-    axiosRequest<Brand>(`/admin/brands/${brand.slug}`, "PATCH", payload)
+    toggleBrandStatus(brand.slug, {
+      id: brand.id,
+      name: brand.name,
+      slug: brand.slug,
+      status: brand.status ? 1 : 0,
+    })
       .then(() => {
         toast.success(
-          `Brand status ${updatedStatus ? "activated" : "deactivated"}!`
+          `Brand status ${!brand.status ? "activated" : "deactivated"}!`
         );
-        fetchBrands(); // reload lại danh sách sau khi đổi trạng thái
+        loadBrands();
       })
       .catch((err) => {
         toast.error("Failed to toggle brand status");
@@ -116,7 +118,6 @@ export default function BrandsPage() {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Brands</h1>
       <CrudGeneric<UIBrand>
         title="Brands"
         initialData={filtered}

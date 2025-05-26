@@ -32,7 +32,7 @@ export default function LoginPage() {
       sessionStorage.setItem('refresh_token', res.refresh_token)
 
       if (res.user.role === 'admin' || res.user.role === 'ladmin') {
-        router.push('/ladmin')
+        router.push('/admin')
       } else {
         router.push('/')
       }

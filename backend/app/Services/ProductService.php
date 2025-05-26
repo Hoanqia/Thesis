@@ -16,7 +16,6 @@ class ProductService
             'description' => 'nullable|string',
             'cat_id' => 'required|exists:categories,id',
             'brand_id' => 'required|exists:brands,id',
-            'image' => 'nullable|file|image',
             'is_featured' => 'nullable|boolean',
             'status' => 'nullable|boolean',
         ])->validate();
@@ -24,12 +23,7 @@ class ProductService
         $validated['slug'] = SlugService::createSlug($validated['name'], Product::class);
         $validated['is_featured'] = $data['is_featured'] ?? false;
         $validated['status'] = $data['status'] ?? true;
-         if (isset($data['image']) && $data['image'] instanceof UploadedFile) {
-            $image = $data['image'];
-            $imageName = time() . '_' . $image->getClientOriginalName();
-            $image->storeAs('uploads/products', $imageName, 'public');
-            $validated['image'] = 'uploads/products/' . $imageName;
-        }
+        
         return Product::create($validated);
     }
 

@@ -10,7 +10,7 @@ export default function HomePage() {
   return (
     <div className="space-y-16">
       <HeroSection />
-    <FeaturedCarousel />    
+    {/* <FeaturedCarousel />     */}
           <CategoryGrid />   
     <RecommendedSection />
     </div>

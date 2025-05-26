@@ -15,7 +15,6 @@ class Product extends Model
         'description',
         'cat_id',
         'brand_id',
-        'image',
         'is_featured',
         'status',
     ];

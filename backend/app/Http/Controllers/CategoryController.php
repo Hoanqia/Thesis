@@ -38,7 +38,46 @@ class CategoryController extends Controller
         }
     }
     
+    public function getParentCats(){
+        try {
+        $catParents = Category::where('id_parent',null)->get();
+            if($catParents->isEmpty()){
+                return response()->json([
+                'message' => 'Không có dữ liệu',
+                'status' => 'success',
+                'data' => [],
+                ],200);
+            }
+             return response()->json([
+                'message' => 'Lấy dữ liệu thành công',
+                'status' => 'success',
+                'data' => $catParents,
+            ],200);
+        }catch(\Exception $e){
+            return ApiExceptionHandler::handleException($e);
+        }
+    }
+    public function getChildCats($id){
+        try {
+        $catParent = Category::find($id);
+        $catChilds = Category::where('id_parent',$catParent->id)->get();
+        if($catChilds->isEmpty()){
+            return response()->json([
+                'message' => 'Không có dữ liệu',
+                'status' => 'success',
+                'data' => [],
+            ],200);
+        }
+        return response()->json([
+                'message' => 'Lấy dữ liệu thành công',
+                'status' => 'success',
+                'data' => $catChilds,
+            ],200);
+        }catch(\Exception $e){
+            return ApiExceptionHandler::handleException($e);
+        }
 
+    }
     public function getAll(){
         try {
             $categories = Category::all();

@@ -95,6 +95,8 @@ return new class extends Migration
             $table->decimal('price', 10, 2)->unsigned();
             $table->decimal('discount', 10, 2)->unsigned()->default(0);
             $table->unsignedInteger('stock')->default(0);
+            $table->string('image')->nullable();
+            $table->boolean('is_default')->default(false);
             $table->timestamps();
         });
         

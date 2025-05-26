@@ -1,202 +1,209 @@
-// src/app/admin/products/page.tsx
+// frontend/src/app/admin/products/page.tsx
 "use client";
-
-import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import CrudGeneric, { CrudItem } from "@/components/ui/CrudGeneric";
+import { useEffect, useState } from "react";
+import CrudGeneric from "@/components/ui/CrudGeneric";
+import toast, { Toaster } from "react-hot-toast";
+import {
+  fetchProducts,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  toggleProductStatus,
+} from "@/features/products/api/productApi";
+import {
+  Category,
+  fetchCategories,
+  fetchParentCategories,
+  fetchChildCategories,
+} from "@/features/categories/api/categoryApi";
+import { fetchBrands } from "@/features/brands/api/brandApi";
 
-
-// Fake product demo
-const fakeProducts: UIProduct[] = [
-  {
-    id: 1,
-    name: "iPhone 14 Pro",
-    slug: "iphone-14-pro",
-    description: "Smartphone thế hệ mới của Apple với màn hình 120Hz",
-    cat_id: 1,
-    brand_id: 1,
-    image: "/images/iphone14pro.jpg",
-    is_featured: true,
-    status: true,
-  },
-  {
-    id: 2,
-    name: "MacBook Air M2",
-    slug: "macbook-air-m2",
-    description: "Laptop mỏng nhẹ chạy chip M2 cực nhanh",
-    cat_id: 2,
-    brand_id: 1,
-    image: "/images/macbookairm2.jpg",
-    is_featured: false,
-    status: true,
-  },
-  {
-    id: 3,
-    name: "Samsung Galaxy S23",
-    slug: "galaxy-s23",
-    description: "Flagship mới nhất của Samsung với camera 200MP",
-    cat_id: 1,
-    brand_id: 2,
-    image: "/images/galaxys23.jpg",
-    is_featured: true,
-    status: true,
-  },
-];
-
-
-interface Product {
+export interface UIProduct {
   id: number;
   name: string;
   slug: string;
   description: string;
   cat_id: number;
   brand_id: number;
-  image: string;       // URL hoặc path
   is_featured: boolean;
   status: boolean;
 }
-
-// UI-only type (không bao gồm tất cả mảng relation)
-interface UIProduct extends CrudItem {
-  name: string;
-  slug: string;
-  description: string;
-  cat_id: number;
-  brand_id: number;
-  image: string;
-  is_featured: boolean;
-  status: boolean;
+interface UIProductWithNames extends UIProduct {
+  cat_name: string;
+  brand_name: string;
+  parent_cat_id?: number;
+  child_cat_id?: number;
 }
 
 export default function ProductsPage() {
-  const router = useRouter();
-//   const [products, setProducts] = useState<UIProduct[]>([]);
-const [products, setProducts] = useState<UIProduct[]>(fakeProducts);
+    const router = useRouter();
+  const [products, setProducts] = useState<UIProduct[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [parentCategories, setParentCategories] = useState<Category[]>([]);
+  const [childCategories, setChildCategories] = useState<Category[]>([]);
+  const [brands, setBrands] = useState<{ id: number; name: string }[]>([]);
 
-  // 1. Fetch danh sách products khi mount
   useEffect(() => {
-    fetch("/api/products")
-      .then((res) => res.json())
-      .then((data: Product[]) => {
-        const ui = data.map((p) => ({
-          id: p.id,
-          name: p.name,
-          slug: p.slug,
-          description: p.description,
-          cat_id: p.cat_id,
-          brand_id: p.brand_id,
-          image: p.image,
-          is_featured: p.is_featured,
-          status: p.status,
-        }));
-        setProducts(ui);
-      });
+    loadProducts();
+    loadCategories();
+    loadBrands();
+    loadParentCategories();
   }, []);
 
-  // 2. Lọc (để CrudGeneric xử lý search nội bộ)
-  const filtered = useMemo(() => products, [products]);
-
-  // 3. Handlers CRUD
-  const handleCreate = (item: Omit<UIProduct, "id">) => {
-    fetch("/api/products", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(item),
-    })
-      .then((res) => res.json())
-      .then((newP: Product) => {
-        setProducts((prev) => [
-          ...prev,
-          {
-            id: newP.id,
-            name: newP.name,
-            slug: newP.slug,
-            description: newP.description,
-            cat_id: newP.cat_id,
-            brand_id: newP.brand_id,
-            image: newP.image,
-            is_featured: newP.is_featured,
-            status: newP.status,
-          },
-        ]);
-      });
+  const loadProducts = async () => {
+    try {
+      const res = await fetchProducts();
+      setProducts(res);
+    } catch {
+      toast.error("Lấy danh sách sản phẩm thất bại");
+    }
   };
 
-  const handleUpdate = (id: number, item: Omit<UIProduct, "id">) => {
-    fetch(`/api/products/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(item),
-    })
-      .then((res) => res.json())
-      .then((updated: Product) => {
-        setProducts((prev) =>
-          prev.map((p) =>
-            p.id === id
-              ? {
-                  id: updated.id,
-                  name: updated.name,
-                  slug: updated.slug,
-                  description: updated.description,
-                  cat_id: updated.cat_id,
-                  brand_id: updated.brand_id,
-                  image: updated.image,
-                  is_featured: updated.is_featured,
-                  status: updated.status,
-                }
-              : p
-          )
-        );
-      });
+  const loadCategories = async () => {
+    try {
+      const res = await fetchCategories();
+      setCategories(res);
+    } catch {
+      toast.error("Lấy danh mục thất bại");
+    }
   };
 
-  const handleDelete = (id: number) => {
-    fetch(`/api/products/${id}`, { method: "DELETE" }).then(() => {
+  const loadParentCategories = async () => {
+    try {
+      const res = await fetchParentCategories();
+      console.log("Fetched parent categories:", res);
+      setParentCategories(res);
+    } catch (err) {
+      console.error("Error loading parent categories:", err);
+      toast.error("Lấy danh mục cha thất bại");
+    }
+  };
+
+  const handleParentChange = async (parentId: number) => {
+    console.log("Parent selected ID:", parentId);
+    setChildCategories([]);
+    try {
+      const res = await fetchChildCategories(parentId);
+      console.log(
+        `Fetched ${res.length} child categories for parent`,
+        parentId,
+        res
+      );
+      setChildCategories(res);
+    } catch (err) {
+      console.error("Error loading child categories:", err);
+      toast.error("Lấy danh mục con thất bại");
+    }
+  };
+
+  const loadBrands = async () => {
+    try {
+      const res = await fetchBrands();
+      setBrands(res);
+    } catch {
+      toast.error("Lấy thương hiệu thất bại");
+    }
+  };
+
+  const handleCreate = async (item: Omit<UIProductWithNames, "id" | "slug" | "cat_name" | "brand_name">) => {
+    try {
+      const payload = {
+        name: item.name,
+        description: item.description,
+        cat_id: item.child_cat_id!,
+        brand_id: item.brand_id,
+        is_featured: item.is_featured,
+        status: item.status,
+      };
+      await createProduct(payload);
+      await loadProducts();
+      toast.success("Tạo sản phẩm thành công");
+    } catch {
+      toast.error("Tạo sản phẩm thất bại");
+    }
+  };
+
+  const handleUpdate = async (
+    id: number,
+    item: Omit<UIProductWithNames, "id" | "slug" | "cat_name" | "brand_name">
+  ) => {
+    const product = products.find((p) => p.id === id);
+    if (!product) {
+      toast.error(`Sản phẩm với id ${id} không tồn tại`);
+      return;
+    }
+    try {
+      const payload = {
+        name: item.name,
+        description: item.description,
+        cat_id: item.child_cat_id!,
+        brand_id: item.brand_id,
+        is_featured: item.is_featured,
+        status: item.status,
+      };
+      await updateProduct(product.slug, payload);
+      await loadProducts();
+      toast.success("Cập nhật sản phẩm thành công");
+    } catch {
+      toast.error("Cập nhật sản phẩm thất bại");
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    const product = products.find((p) => p.id === id);
+    if (!product) {
+      toast.error(`Sản phẩm với id ${id} không tồn tại`);
+      return;
+    }
+    try {
+      await deleteProduct(product.slug);
       setProducts((prev) => prev.filter((p) => p.id !== id));
-    });
+      toast.success("Xóa sản phẩm thành công");
+    } catch {
+      toast.error("Xóa sản phẩm thất bại");
+    }
   };
 
-  const handleToggleStatus = (id: number) => {
-    const prod = products.find((p) => p.id === id);
-    if (!prod) return;
-    const newStatus = !prod.status;
-    fetch(`/api/products/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...prod, status: newStatus }),
-    })
-      .then((res) => res.json())
-      .then((up: Product) => {
-        setProducts((prev) =>
-          prev.map((p) =>
-            p.id === id ? { ...p, status: up.status } : p
-          )
-        );
-      });
+  const handleToggleStatus = async (id: number) => {
+    const product = products.find((p) => p.id === id);
+    if (!product) {
+      toast.error(`Sản phẩm với id ${id} không tồn tại`);
+      return;
+    }
+    try {
+      const res = await toggleProductStatus(product.slug, product.status);
+      setProducts((prev) => prev.map((p) => (p.id === id ? res : p)));
+      toast.success("Chuyển trạng thái thành công");
+    } catch {
+      toast.error("Chuyển trạng thái thất bại");
+    }
   };
+
+  const productsWithNames: UIProductWithNames[] = products.map((p) => {
+    const category = categories.find((c) => c.id === p.cat_id);
+    const brand = brands.find((b) => b.id === p.brand_id);
+    return {
+      ...p,
+      cat_name: category ? category.name : "N/A",
+      brand_name: brand ? brand.name : "N/A",
+      parent_cat_id: undefined,
+      child_cat_id: undefined,
+    };
+  });
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Products</h1>
-
-      <CrudGeneric<UIProduct>
-        title="Products"
-        initialData={filtered}
+    <>
+      <Toaster position="top-right" reverseOrder={false} />
+      <CrudGeneric<UIProductWithNames>
+        title="Sản phẩm"
+        initialData={productsWithNames}
         columns={[
+          "id",
           "name",
           "slug",
-          "cat_id",
-          "brand_id",
-          "is_featured",
-          "status",
-        ]}
-        fields={[
-          "name",
-          "slug",
-          "description",
-          "cat_id",
-          "brand_id",
-          "image",
+          "cat_name",
+          "brand_name",
           "is_featured",
           "status",
         ]}
@@ -204,17 +211,60 @@ const [products, setProducts] = useState<UIProduct[]>(fakeProducts);
         onUpdate={handleUpdate}
         onDelete={handleDelete}
         onToggleStatus={handleToggleStatus}
-        renderActions={(prod) => (
+        fields={[
+          "parent_cat_id",
+          "child_cat_id",
+          "name",
+          "description",
+          "brand_id",
+          "is_featured",
+          "status",
+        ]}
+        fieldsConfig={{
+          parent_cat_id: {
+            label: "Danh mục cha",
+            type: "select",
+            options: parentCategories.map((c) => ({ value: c.id, label: c.name })),
+            onChange: (val: number) => {
+              console.log("parent_cat_id onChange:", val);
+              handleParentChange(val);
+            },
+          },
+          child_cat_id: {
+            label: "Danh mục con",
+            type: "select",
+            options: childCategories.map((c) => ({ value: c.id, label: c.name })),
+            required: true,
+            onChange: (val: number) => console.log("child_cat_id onChange:", val),
+          },
+          name: { label: "Tên sản phẩm", required: true },
+          description: { label: "Mô tả" },
+          brand_id: {
+            label: "Thương hiệu",
+            type: "select",
+            required: true,
+            options: brands.map((b) => ({ value: b.id, label: b.name })),
+          },
+          is_featured: { label: "Nổi bật", type: "checkbox" },
+          status: {
+            label: "Trạng thái",
+            type: "select",
+            options: [
+              { label: "Active", value: true },
+              { label: "Inactive", value: false },
+            ],
+          },
+        }}
+
+        renderActions={(product) => (
           <button
             className="text-indigo-600 hover:underline"
-            onClick={() =>
-              router.push(`/admin/products/${prod.id}/variants`)
-            }
+            onClick={() => router.push(`/admin/products/${product.id}/variants`)}
           >
             Xem variants
           </button>
         )}
       />
-    </div>
+    </>
   );
 }

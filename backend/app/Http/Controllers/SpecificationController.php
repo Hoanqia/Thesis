@@ -6,7 +6,8 @@ use Illuminate\Http\Request;
 use App\Services\SpecificationService;
 use App\Exceptions\ApiExceptionHandler;
 use Illuminate\Support\Facades\Log;
-
+use App\Models\Category;
+use App\Models\Product;
 class SpecificationController extends Controller
 {
     protected $specificationService;
@@ -31,28 +32,52 @@ class SpecificationController extends Controller
         }
     }
 
-    public function index(Request $request)
-    {
-        try {
-            $specs = $request->filled('category_id')
-                ? $this->specificationService->getAll($request->category_id)
-                : $this->specificationService->getAll();
+    public function index($categoryId, Request $request)
+{
+    try {
+        // Lấy brand theo slug
+        $category = Category::where('id', $categoryId)->firstOrFail();
 
-            if ($specs->isEmpty()) {
-                return response()->json([
-                    'message' => 'Không có thuộc tính',
-                    'status' => 'success',
-                ], 204);
-            }
+        // Gọi service để lấy specs theo category_id
+        $specs = $this->specificationService->getAll($category->id);
 
+        if ($specs->isEmpty()) {
             return response()->json([
-                'message' => 'Lấy danh sách thuộc tính thành công',
+                'message' => 'Không có thuộc tính',
                 'status' => 'success',
-                'data' => $specs,
-            ]);
-        } catch (\Exception $e) {
+            ], 204);
+        }
+
+        return response()->json([
+            'message' => 'Lấy danh sách thuộc tính thành công',
+            'status' => 'success',
+            'data' => $specs,
+        ]);
+    } catch (\Exception $e) {
+        return ApiExceptionHandler::handleException($e);
+    }
+}
+
+    public function index2($productId,Request $request){
+        try {
+            $product = Product::find($productId);
+            $specs = $this->specificationService->getAll($product->cat_id);
+            if ($specs->isEmpty()) {
+            return response()->json([
+                'message' => 'Không có thuộc tính',
+                'status' => 'success',
+            ], 204);
+        }
+
+        return response()->json([
+            'message' => 'Lấy danh sách thuộc tính thành công',
+            'status' => 'success',
+            'data' => $specs,
+        ]);
+        }catch(\Exception $e){
             return ApiExceptionHandler::handleException($e);
         }
+
     }
 
     public function get($id)
@@ -69,7 +94,7 @@ class SpecificationController extends Controller
             return ApiExceptionHandler::handleException($e);
         }
     }
-    public function search(Request $request)
+   public function search(Request $request)
     {
         try {
             $request->validate([
@@ -80,26 +105,26 @@ class SpecificationController extends Controller
             $keyword = $request->input('keyword');
             $categoryId = $request->input('category_id');
 
-            $specs = $this->specService->searchByName($keyword, $categoryId);
+            $specs = $this->specificationService->searchByName($keyword, $categoryId);
 
             if ($specs->isEmpty()) {
                 return response()->json([
                     'message' => 'Không tìm thấy specification nào',
                     'status' => 'success',
                     'data' => [],
-                ], 204);
+                ], 200);
             }
 
             return response()->json([
                 'message' => 'Tìm kiếm thành công',
                 'status' => 'success',
                 'data' => $specs,
-            ], 200);
-
+            ]);
         } catch (\Exception $e) {
             return ApiExceptionHandler::handleException($e);
         }
     }
+
     public function edit($id, Request $request)
     {
         try {
@@ -128,4 +153,6 @@ class SpecificationController extends Controller
             return ApiExceptionHandler::handleException($e);
         }
     }
+
+    
 }

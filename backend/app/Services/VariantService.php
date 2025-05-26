@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Variant;
 use App\Models\VariantSpecValue;
 use Illuminate\Support\Facades\DB;
+use Intervention\Image\Facades\Image;
 
 class VariantService
 {
@@ -41,6 +42,21 @@ class VariantService
 
     public function createVariant(array $data){
         return DB::transaction(function () use ($data) {
+             if (isset($data['image']) && $data['image'] instanceof UploadedFile) {
+            $image = $data['image'];
+            $imageName = time() . '_' . $image->getClientOriginalName();
+
+             $resizedImage = Image::make($image)->resize(750,500, function ($constraint) {
+                $constraint->aspectRatio(); // giữ tỉ lệ khung hình
+                $constraint->upsize();      // không phóng to ảnh nhỏ
+            });
+            // $image->storeAs('uploads/variants', $imageName, 'public');
+            // $data['image'] = 'uploads/variants/' . $imageName;
+            $path = storage_path('app/public/uploads/variants/' . $imageName);
+            $resizedImage->save($path);
+
+            $data['image'] = 'uploads/variants/' . $imageName;
+        }
             $sku = $this->generateSkuFromSpec($data);
             $variant = Variant::create([
                 'product_id' => $data['product_id'],
@@ -48,8 +64,10 @@ class VariantService
                 'price'      => $data['price'],
                 'discount'   => $data['discount'] ?? 0,
                 'stock'      => $data['stock'] ?? 0,
-            ]);
+                'image'      => $data['image'] ?? null,
 
+            ]);
+        
             // Nếu có parent_variant_id thì clone spec_values từ đó
             if (!empty($data['parent_variant_id'])) {
                 $parentSpecValues = VariantSpecValue::where('variant_id', $data['parent_variant_id'])->get();

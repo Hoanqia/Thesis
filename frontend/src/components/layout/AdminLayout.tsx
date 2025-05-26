@@ -1,40 +1,85 @@
 "use client";
 
-import React, { ReactNode } from "react";
+import React, { ReactNode, useEffect, useState } from "react";
+import { Spinner } from "@/components/ui/Spinner";
 import { Toaster } from "react-hot-toast";
+import { useRouter } from "next/navigation";
 import {
-  User,
-  Layers,
-  Tag,
-  Package,
-  Sliders,
-  ListChecks,
-  Settings,
-  MapPin,
-  FileText,
-  Bell,
-  LogOut,
-  Lock,
-  Info,
+  User, Layers, Tag, Package, Sliders, ListChecks,
+  Settings, MapPin, FileText, Bell, LogOut, Lock, Info,
 } from "lucide-react";
 import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
+  Popover, PopoverTrigger, PopoverContent,
 } from "@/components/ui/popover";
 import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/Button";
+import { handleLogout } from "@/features/auth/api/logout";
+import { axiosRequest } from "@/lib/axiosRequest";
 
 type AdminLayoutProps = {
   children: ReactNode;
 };
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
+  const router = useRouter();
+
+  const [loading, setLoading] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+  async function checkAuth() {
+    try {
+        const res = await axiosRequest("auth/me", "GET");
+
+    console.log("auth/me response:", res);
+
+    if (!res || !res.user || !res.user.role) {
+      setIsLoggedIn(false);
+      setIsAdmin(false);
+      router.push("/login");
+      return;
+    }
+
+    setIsLoggedIn(true);
+    const role = res.user.role.toLowerCase();
+    console.log("User role:", role);
+
+    if (role === "admin" || role === "ladmin") {
+      setIsAdmin(true);
+    } else {
+      setIsAdmin(false);
+      router.push("/");
+    }
+    } catch (error) {
+      setIsLoggedIn(false);
+      setIsAdmin(false);
+      router.push("/login");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  checkAuth();
+}, [router]);
+
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen">
+        <Spinner />
+        <div className="mt-4 text-gray-700">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!isLoggedIn || !isAdmin) {
+    // Chưa đăng nhập hoặc không phải admin thì không render gì
+    return null;
+  }
+
   const menuItems = [
     { name: "User", icon: <User size={20} />, href: "/admin/users" },
     { name: "Category", icon: <Layers size={20} />, href: "/admin/categories" },
@@ -74,11 +119,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         </nav>
       </aside>
 
-      {/* Main layout */}
+      {/* Main content */}
       <div className="flex-1 flex flex-col">
         {/* Navbar */}
         <header className="flex items-center justify-end bg-white h-16 px-6 shadow-md gap-4">
-          {/* Notification Bell (Popover) */}
           <Popover>
             <PopoverTrigger asChild>
               <button className="relative focus:outline-none">
@@ -99,7 +143,6 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             </PopoverContent>
           </Popover>
 
-          {/* User Dropdown (DropdownMenu) */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center gap-2 px-3 py-1">
@@ -120,7 +163,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               </DropdownMenuItem>
               <DropdownMenuItem>
                 <button
-                  onClick={() => console.log("Logout")}
+                  onClick={async () => {
+                    await handleLogout();
+                  }}
                   className="flex items-center gap-2 w-full text-left"
                 >
                   <LogOut size={16} /> Đăng xuất
@@ -133,11 +178,13 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         {/* Page content */}
         <main className="flex-1 p-6 overflow-auto">{children}</main>
       </div>
-       {/* Toast container */}
+
+      {/* Toast container */}
       <Toaster position="top-right" reverseOrder={false} />
     </div>
   );
 }
+
 
 
 // "use client";

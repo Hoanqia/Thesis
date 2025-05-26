@@ -6,7 +6,7 @@ import Footer from './Footer'
 
 export default function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? ''
-  const excludedPrefixes = ['/admin', '/register', '/login']
+  const excludedPrefixes = ['/admin', '/register', '/login','/oauth-callback']
   const showLayout = !excludedPrefixes.some(prefix => pathname.startsWith(prefix))
 
   return (

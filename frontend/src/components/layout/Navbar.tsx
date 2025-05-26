@@ -12,6 +12,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import { useAuthStore } from '@/features/auth/store/useAuthStore';
 
 import {
   Popover,
@@ -20,33 +21,42 @@ import {
 } from "@/components/ui/popover";
 
 
-const logoutHandler = async () => {
-  await handleLogout();
-}
+
 
 export default function Navbar() {
+  
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  const logoutHandler = async () => {
+  try {
+    await handleLogout();
+    setIsLoggedIn(false); // cập nhật trạng thái sau khi logout
+  } catch (error) {
+    console.error('Logout failed:', error);
+  }
+};
 
   useEffect(() => {
-  const checkAuth = async () => {
-    try {
-      const res = await axiosRequest('auth/me', 'GET');
-      console.log('Response /auth/me:', res);  // In ra response từ API
-      if (res && res.user) {
-        console.log('User is logged in:', res.user);
-        setIsLoggedIn(true);
-      } else {
-        console.log('No user data, not logged in');
+    const checkAuth = async () => {
+      try {
+        const { user } = await axiosRequest('auth/me', 'GET');
+        if (user) {
+          console.log('User is logged in:', user);
+          setIsLoggedIn(true);
+        } else {
+          console.log('No user data, not logged in');
+          setIsLoggedIn(false);
+        }
+      } catch (error) {
+        console.error('Error when calling /auth/me:', error);
         setIsLoggedIn(false);
       }
-    } catch (error) {
-      console.log('Error when calling /auth/me:', error);
-      setIsLoggedIn(false);
-    }
-  };
-  checkAuth();
-}, []);
+    };
+
+    checkAuth();
+  }, []);
+
 
 
   return (

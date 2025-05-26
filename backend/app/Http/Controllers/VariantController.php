@@ -32,8 +32,12 @@ class VariantController extends Controller
                 'spec_values.*.value_text' => 'nullable|string',
                 'spec_values.*.value_int' => 'nullable|integer',
                 'spec_values.*.value_decimal' => 'nullable|numeric',
-            ]);
+                'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048', // validate ảnh
 
+            ]);
+             if ($request->hasFile('image')) {
+                $validated['image'] = $request->file('image');
+            }
             // Gọi service xử lý
             $variant = $this->variantService->createVariant($validated);
 

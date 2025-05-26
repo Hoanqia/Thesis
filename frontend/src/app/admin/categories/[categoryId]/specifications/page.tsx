@@ -1,130 +1,105 @@
-// app/admin/categories/[categoryId]/specifications/page.tsx
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
+import React, { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import { toast } from "react-hot-toast";  // <-- Import toast
+
 import CrudGeneric, { CrudItem } from "@/components/ui/CrudGeneric";
 
-interface Spec {
-  id: number;
-  category_id: number;
-  name: string;
-  data_type: string;
-  unit: string;
-  description: string;
-}
+import {
+  Specification,
+  CreateSpecDto,
+  UpdateSpecDto,
+  fetchSpecificationsByCategoryId,
+  createSpecification,
+  updateSpecification,
+  deleteSpecification,
+} from "@/features/specifications/api/specificationApi";
 
-// KIỂU DÙNG TRONG UI, chỉ gồm những field CRUDGeneric có:
-interface UISpec extends CrudItem {
-  name: string;
-  data_type: string;
-  unit: string;
-  description: string;
-}
+export default function SpecificationsPage() {
+  const { categoryId } = useParams();
 
-export default function SpecsPage() {
-  const router = useRouter();
-  const { categoryId } = useParams<{ categoryId: string }>();
-  const catId = parseInt(categoryId, 10);
+  const [specifications, setSpecifications] = useState<Specification[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Giữ data UI
-  const [specs, setSpecs] = useState<UISpec[]>([]);
+  const loadSpecifications = () => {
+    if (!categoryId) return;
+    setLoading(true);
+    fetchSpecificationsByCategoryId(Number(categoryId))
+      .then(setSpecifications)
+      .finally(() => setLoading(false));
+  };
 
   useEffect(() => {
-    // Ví dụ fetch Spec[] từ API rồi map về UISpec[]
-    fetch(`/api/categories/${catId}/specifications`)
-      .then((res) => res.json())
-      .then((data: Spec[]) => {
-        const uiList: UISpec[] = data.map((s) => ({
-          id: s.id,
-          name: s.name,
-          data_type: s.data_type,
-          unit: s.unit,
-          description: s.description,
-        }));
-        setSpecs(uiList);
-      });
-  }, [catId]);
+    loadSpecifications();
+  }, [categoryId]);
 
-  const filtered = useMemo(() => specs, [specs]);
-
-  // CREATE: item chỉ có name, data_type, unit, description
-  const handleCreate = (item: Omit<UISpec, "id">) => {
-    // gắn thêm category_id để gửi server
-    const payload = { ...item, category_id: catId };
-    fetch(`/api/categories/${catId}/specifications`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    })
-      .then((res) => res.json())
-      .then((newSpec: Spec) => {
-        // map về UISpec
-        setSpecs((prev) => [
-          ...prev,
-          {
-            id: newSpec.id,
-            name: newSpec.name,
-            data_type: newSpec.data_type,
-            unit: newSpec.unit,
-            description: newSpec.description,
-          },
-        ]);
-      });
+  const handleCreate = async (item: Omit<Specification, "id">) => {
+    if (!categoryId) return;
+    try {
+      const newSpec = await createSpecification({
+        ...item,
+        category_id: Number(categoryId),
+      } as CreateSpecDto);
+      loadSpecifications();
+      setSpecifications((prev) => [...prev, newSpec]);
+      toast.success("Tạo thông số kỹ thuật thành công!");
+    } catch (error) {
+      console.error("Tạo specification lỗi:", error);
+      toast.error("Tạo thông số kỹ thuật thất bại!");
+    }
   };
 
-  // UPDATE: item chỉ có name, data_type, unit, description
-  const handleUpdate = (id: number, item: Omit<UISpec, "id">) => {
-    const payload = { ...item, category_id: catId };
-    fetch(`/api/categories/${catId}/specifications/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    })
-      .then((res) => res.json())
-      .then((updated: Spec) => {
-        setSpecs((prev) =>
-          prev.map((s) =>
-            s.id === id
-              ? {
-                  id: updated.id,
-                  name: updated.name,
-                  data_type: updated.data_type,
-                  unit: updated.unit,
-                  description: updated.description,
-                }
-              : s
-          )
-        );
-      });
+  const handleUpdate = async (id: number, item: Omit<Specification, "id">) => {
+    try {
+      await updateSpecification(id, item as UpdateSpecDto);
+      loadSpecifications();
+      toast.success("Cập nhật thông số kỹ thuật thành công!");
+    } catch (error) {
+      console.error("Cập nhật specification lỗi:", error);
+      toast.error("Cập nhật thông số kỹ thuật thất bại!");
+    }
   };
 
-  const handleDelete = (id: number) => {
-    fetch(`/api/categories/${catId}/specifications/${id}`, {
-      method: "DELETE",
-    }).then(() => {
-      setSpecs((prev) => prev.filter((s) => s.id !== id));
-    });
+  const handleDelete = async (id: number) => {
+    try {
+      await deleteSpecification(id);
+      loadSpecifications();
+      toast.success("Xoá thông số kỹ thuật thành công!");
+    } catch (error) {
+      console.error("Xoá specification lỗi:", error);
+      toast.error("Xoá thông số kỹ thuật thất bại!");
+    }
   };
+
+  if (loading) {
+    return <div>Đang tải dữ liệu...</div>;
+  }
 
   return (
-    <div className="p-6">
-      <button
-        className="mb-4 text-sm text-blue-600 hover:underline"
-        onClick={() => router.back()}
-      >
-        ← Quay lại danh sách Categories
-      </button>
-
-      <CrudGeneric<UISpec>
-        title={`Specifications của Category ${catId}`}
-        initialData={filtered}
-        columns={["name", "data_type", "unit", "description"]}
-        fields={["name", "data_type", "unit", "description"]}
-        onCreate={handleCreate}
-        onUpdate={handleUpdate}
-        onDelete={handleDelete}
-      />
-    </div>
+    <CrudGeneric<Specification>
+      title={`Thông số kỹ thuật - Category ${categoryId}`}
+      initialData={specifications}
+      columns={["id", "name", "data_type", "unit", "description"]}
+      fields={["name", "data_type", "unit", "description"]}
+      onCreate={handleCreate}
+      onUpdate={handleUpdate}
+      onDelete={handleDelete}
+      fieldsConfig={{
+        data_type: {
+          type: "select",
+          options: [
+            { value: "int", label: "Int" },
+            { value: "decimal", label: "Decimal" },
+            { value: "text", label: "Text" },
+            { value: "option", label: "Option" },
+          ],
+        },
+      }}
+      renderRow={(item, column) => {
+        const val = item[column];
+        return val ? String(val) : "-";
+      }}
+    />
   );
 }

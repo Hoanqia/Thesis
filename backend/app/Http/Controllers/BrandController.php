@@ -38,6 +38,8 @@ class BrandController extends Controller
             return ApiExceptionHandler::handleException($e);
         }
     }
+
+    
     public function getAll(){
         try {
             $brands = Brand::all();

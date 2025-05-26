@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Services\ProductService;
 use App\Exceptions\ApiExceptionHandler;
+use Illuminate\Support\Facades\Log;
 
 class ProductController extends Controller
 {

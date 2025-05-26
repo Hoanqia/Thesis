@@ -316,7 +316,8 @@ public function logout(Request $request)
             Log::info('Lấy được thông tin user:', [
                 'id' => $user->id,
                 'name' => $user->name,
-                'email' => $user->email
+                'email' => $user->email,
+                'role' => $user->role
             ]);
 
             return response()->json([
@@ -325,6 +326,7 @@ public function logout(Request $request)
                     'id'    => $user->id,
                     'name'  => $user->name,
                     'email' => $user->email,
+                    'role'  => $user->role,
                 ]
             ]);
         } catch (\Exception $e) {

@@ -42,13 +42,38 @@ Route::prefix('auth')->group(function () {
 Route::middleware(['auth:api'])->group(function () {
     Route::middleware('role:admin')->group(function (){
         Route::prefix('admin')->group(function () {
+
+            Route::get('product/specifications/{productId}',[SpecificationController::class,'index2']);
+            Route::delete('/specifications/{id}',[SpecificationController::class,'destroy']);
+            Route::patch('/specifications/{id}',[SpecificationController::class,'edit']);
+            Route::get('/specifications/{id}',[SpecificationController::class,'get']);
+            Route::post('/specifications',[SpecificationController::class,'store']);
+            Route::get('/specifications/search',[SpecificationController::class,'search']);
+            Route::get('/specifications/{categoryId}',[SpecificationController::class,'index']);
+
+
+            Route::get('/spec-options/{specId}',[SpecOptionController::class,'index']);
+            Route::delete('/spec-options/{id}',[SpecOptionController::class,'destroy']);
+            Route::patch('/spec-options/{id}',[SpecOptionController::class,'update']);
+            Route::get('/spec-options/{id}',[SpecOptionController::class,'get']);
+            Route::post('/spec-options',[SpecOptionController::class,'store']);
+
+
+              Route::delete('/variants/{variantId}',[VariantController::class,'destroy']);
+            Route::patch('/variants/{variantId}',[VariantController::class,'update']);
+            Route::get('/{productId}/variants',[VariantController::class,'getByProduct']);
+            Route::get('/variants/{variantId}',[VariantController::class,'get']);
+            Route::post('/variants',[VariantController::class,'store']);
+            
+            Route::get('/categories-child/{id}',[CategoryController::class,'getChildCats']);
+            Route::get('/categories/{categoryId}/specifications',[SpecificationController::class,'index']);
             Route::patch('/categories/{slug}',[CategoryController::class,'edit']);
             Route::delete('/categories/{slug}',[CategoryController::class,'destroy']);
             Route::get('/categories/{slug}',[CategoryController::class,'get']);
             Route::post('/categories', [CategoryController::class, 'store']);
             Route::get('/categories', [CategoryController::class, 'getAll']);
-            
-    
+            Route::get('/categories-parents',[CategoryController::class,'getParentCats']);
+
             Route::delete('/brands/{slug}',[BrandController::class,'destroy']);
             Route::patch('/brands/{slug}',[BrandController::class,'edit']);
             Route::get('/brands/{slug}',[BrandController::class,'get']);
@@ -65,23 +90,8 @@ Route::middleware(['auth:api'])->group(function () {
             Route::get('/products/search',[ProductController::class,'index']); // index này là search, còn các index khác là get All
             
 
-            Route::delete('/specifications/{id}',[SpecificationController::class,'destroy']);
-            Route::patch('/specifications/{id}',[SpecificationController::class,'edit']);
-            Route::get('/specifications/{id}',[SpecificationController::class,'get']);
-            Route::get('/specifications',[SpecificationController::class,'index']);
-            Route::post('/specifications',[SpecificationController::class,'store']);
-
-
-
-            Route::delete('/spec-options/{id}',[SpecOptionController::class,'destroy']);
-            Route::patch('/spec-options/{id}',[SpecOptionController::class,'update']);
-            Route::get('/spec-options/{id}',[SpecOptionController::class,'get']);
-            Route::post('/spec-options',[SpecOptionController::class,'store']);
-            Route::get('/spec-options',[SpecOptionController::class,'index']);
-
-            Route::get('/{productId}/variants',[VariantController::class,'getByProduct']);
-            Route::get('/variants/{variantId}',[VariantController::class,'get']);
-            Route::post('/variants',[VariantController::class,'store']);
+            
+          
         });
     });
     Route::middleware('role:customer')->group(function (){

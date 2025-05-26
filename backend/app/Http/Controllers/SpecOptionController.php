@@ -20,10 +20,10 @@ class SpecOptionController extends Controller
     /**
      * Lấy tất cả option theo spec_id
      */
-    public function index(Request $request)
+    public function index($specId,Request $request)
     {
         try {
-            $specId = $request->query('spec_id');
+            // $specId = $request->query('spec_id');
             $options = $this->specOptionService->getAll($specId);
 
             return response()->json([

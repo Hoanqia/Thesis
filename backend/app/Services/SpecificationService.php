@@ -33,13 +33,22 @@ class SpecificationService
             'options' => 'sometimes|array',
             'options.*' => 'string',
         ])->validate();
+
+         $options = $data['options'] ?? [];
+        unset($validated['options']);
+
         $spec = Specification::create($validated);
 
-         if ($validated['data_type'] === 'option' && !empty($validated['options'])) {
-            foreach ($validated['options'] as $value) {
-                $spec->spec_options()->create([
-                    'value' => $value,
-                ]);
+        //  if ($validated['data_type'] === 'option' && !empty($validated['options'])) {
+        //     foreach ($validated['options'] as $value) {
+        //         $spec->spec_options()->create([
+        //             'value' => $value,
+        //         ]);
+        //     }
+        // }
+        if ($spec->data_type === 'option' && !empty($options)) {
+            foreach ($options as $value) {
+                $spec->spec_options()->create(['value' => $value]);
             }
         }
         return $spec;
@@ -70,7 +79,7 @@ class SpecificationService
     /**
      * Cập nhật specification
      */
-    public function update(int $id, array $data): Specification
+        public function update(int $id, array $data): Specification
     {
         $spec = Specification::findOrFail($id);
 
@@ -91,11 +100,38 @@ class SpecificationService
             'data_type' => 'in:int,decimal,text,option',
             'unit' => 'nullable|string|max:50',
             'description' => 'nullable|string',
+            'options' => 'nullable|array',
+            'options.*' => 'string|max:255',
         ])->validate();
 
         $spec->update($validated);
-        return $spec;
+
+        if ($spec->data_type === 'option') {
+            $newOptions = $data['options'] ?? [];
+            $newValues = collect($newOptions)->map(fn($v) => trim($v))->filter()->unique()->values();
+            $currentOptions = $spec->spec_options()->get();
+
+            // Xóa các options không còn nữa nếu không bị dùng
+            foreach ($currentOptions as $option) {
+                if (!$newValues->contains($option->value)) {
+                    $isUsed = \App\Models\VariantSpecValue::where('option_id', $option->id)->exists();
+                    if (!$isUsed) {
+                        $option->delete();
+                    }
+                }
+            }
+
+            // Thêm option mới nếu chưa có
+            foreach ($newValues as $value) {
+                if (!$currentOptions->contains('value', $value)) {
+                    $spec->spec_options()->create(['value' => $value]);
+                }
+            }
+        }
+
+        return $spec->load('spec_options');
     }
+
 
     /**
      * Xoá specification

@@ -64,6 +64,14 @@ class UserController extends Controller
         $googleUser = Socialite::driver('google')->stateless()->user();
 
         $user = User::where('google_id', $googleUser->id)->first();
+        
+           if ($user && $user->status === 0) {
+            // Redirect về /app/home với thông báo
+            $query = http_build_query([
+                'error' => 'account_locked'
+            ]);
+            return redirect()->to("http://localhost:3000/");
+        }
 
         if (!$user) {
             $user = User::create([
@@ -373,4 +381,44 @@ public function logout(Request $request)
         ]);
     }
     
+    public function changeStatusUser($id,Request $request){
+        try {
+             $user = User::find($id);
+        if(!$user){
+            return response()->json([
+                'message' => 'User không tồn tại',
+                'status' => 'error',
+            ],404);
+        }
+        $validated = $request->validate([
+            'status' => 'required|numeric',
+        ]);
+        $user->status = $validated['status'];
+        $user->save();
+        return response()->json([
+            'message' => 'Cập nhật trạng thái thành công',
+            'status' => 'success',
+            'data' => $user->status,
+        ],200);
+        }catch(\Exception $e){
+            return ApiExceptionHandler::handleException($e);
+        }
+       
+    }
+    public function getAll(){
+        try {
+             $users = User::all();
+                if($users->isEmpty()){
+                    return response()->noContent();
+                }
+                return response()->json([
+                    'message' => 'Lấy dữ liệu thành công',
+                    'status' => 'success',
+                    'data' => $users,
+                ],200);
+        }catch(\Exception $e){
+            return ApiExceptionHandler::handleException($e);
+        }
+       
+    }
 }

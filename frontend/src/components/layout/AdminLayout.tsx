@@ -85,13 +85,13 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     { name: "Category", icon: <Layers size={20} />, href: "/admin/categories" },
     { name: "Brand", icon: <Tag size={20} />, href: "/admin/brands" },
     { name: "Product", icon: <Package size={20} />, href: "/admin/products" },
-    { name: "Variant", icon: <Sliders size={20} />, href: "/admin/variants" },
-    { name: "Specification", icon: <Sliders size={20} />, href: "/admin/specifications" },
-    { name: "Spec Option", icon: <ListChecks size={20} />, href: "/admin/spec_options" },
-    { name: "Spec Value", icon: <FileText size={20} />, href: "/admin/spec_values" },
+    { name: "Order", icon: <Sliders size={20} />, href: "/admin/variants" },
+    { name: "Import", icon: <Sliders size={20} />, href: "/admin/specifications" },
+    // { name: "Spec Option", icon: <ListChecks size={20} />, href: "/admin/spec_options" },
+    // { name: "Spec Value", icon: <FileText size={20} />, href: "/admin/spec_values" },
     { name: "Review", icon: <FileText size={20} />, href: "/admin/reviews" },
-    { name: "User Address", icon: <MapPin size={20} />, href: "/admin/user_addresses" },
-    { name: "Setting", icon: <Settings size={20} />, href: "/admin/settings" },
+    // { name: "User Address", icon: <MapPin size={20} />, href: "/admin/user_addresses" },
+    // { name: "Setting", icon: <Settings size={20} />, href: "/admin/settings" },
   ];
 
   const unreadNotifications = 5;
@@ -102,7 +102,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       {/* Sidebar */}
       <aside className="w-64 bg-gray-800 text-gray-100 flex flex-col">
         <div className="flex items-center justify-center h-16 border-b border-gray-700 font-bold text-xl">
-          E-Shop Admin
+          E-Shop 
         </div>
 
         <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-1">

@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import LayoutWrapper from '@/components/layout/LayoutWrapper'
+import { Toaster } from 'react-hot-toast';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -28,6 +29,8 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}
       >
+                <Toaster position="top-right" />
+
         {/* Đây là client wrapper để show/hide Navbar/Footer */}
         <LayoutWrapper>{children}</LayoutWrapper>
       </body>

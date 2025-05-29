@@ -23,6 +23,7 @@ export interface CreateSpecDto {
   data_type?: string;
   unit?: string;
   description?: string;
+  options?: string[];
 }
 
 export interface UpdateSpecDto {
@@ -31,6 +32,7 @@ export interface UpdateSpecDto {
   data_type?: string;
   unit?: string;
   description?: string;
+  options?: string[];
 }
 
 // Lấy danh sách specifications theo category_id

@@ -75,4 +75,5 @@ class SpecOptionService
     {
         return SpecOption::where('spec_id', $specId)->get();
     }
+    
 }

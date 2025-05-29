@@ -21,7 +21,9 @@
     "next": "15.3.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-hook-form": "^7.56.4",
     "react-hot-toast": "^2.5.2",
+    "react-tag-input": "^6.10.6",
     "swiper": "^11.2.6",
     "tailwind-merge": "^3.3.0",
     "zustand": "^5.0.5"

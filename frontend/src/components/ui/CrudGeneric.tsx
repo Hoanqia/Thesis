@@ -15,7 +15,7 @@ import { CrudModal } from "@/components/ui/CrudModal";
 
 export interface FieldConfig {
   label?: string;
-  type?: "text" | "number" | "checkbox" | "select" | "file";
+  type?: "text" | "number" | "checkbox" | "select" | "file" | "tags";
   options?: { label: string; value: any }[];
   placeholder?: string;
   required?: boolean;

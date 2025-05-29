@@ -5,7 +5,7 @@ const axiosInstance = axios.create({
   baseURL: 'http://localhost:8000/api', // Cập nhật baseURL nếu cần
   // Bỏ withCredentials vì không dùng cookie HttpOnly
   headers: {
-    'Content-Type': 'application/json',
+    // 'Content-Type': 'application/json',
     Accept: 'application/json',
   },
 });

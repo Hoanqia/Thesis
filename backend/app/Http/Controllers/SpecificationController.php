@@ -126,7 +126,8 @@ class SpecificationController extends Controller
     }
 
     public function edit($id, Request $request)
-    {
+    {   
+                    \Log::info('All request input:', $request->all());
         try {
             $spec = $this->specificationService->update($id, $request->all());
 

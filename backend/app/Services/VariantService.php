@@ -3,12 +3,22 @@
 namespace App\Services;
 
 use App\Models\Variant;
+use App\Models\SpecOption;
+
 use App\Models\VariantSpecValue;
 use Illuminate\Support\Facades\DB;
-use Intervention\Image\Facades\Image;
+use Intervention\Image\ImageManager;
+use Intervention\Image\Drivers\Gd\Driver;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\UploadedFile;
 
 class VariantService
-{
+{   
+
+     public function showSpecValues($variantId){
+            return VariantSpecValue::where('variant_id', $variantId)
+           ->get();     
+    }
     private function generateSkuFromSpec(array $data): string{
         $sku = 'V' . $data['product_id'];
 
@@ -42,21 +52,7 @@ class VariantService
 
     public function createVariant(array $data){
         return DB::transaction(function () use ($data) {
-             if (isset($data['image']) && $data['image'] instanceof UploadedFile) {
-            $image = $data['image'];
-            $imageName = time() . '_' . $image->getClientOriginalName();
 
-             $resizedImage = Image::make($image)->resize(750,500, function ($constraint) {
-                $constraint->aspectRatio(); // giữ tỉ lệ khung hình
-                $constraint->upsize();      // không phóng to ảnh nhỏ
-            });
-            // $image->storeAs('uploads/variants', $imageName, 'public');
-            // $data['image'] = 'uploads/variants/' . $imageName;
-            $path = storage_path('app/public/uploads/variants/' . $imageName);
-            $resizedImage->save($path);
-
-            $data['image'] = 'uploads/variants/' . $imageName;
-        }
             $sku = $this->generateSkuFromSpec($data);
             $variant = Variant::create([
                 'product_id' => $data['product_id'],
@@ -108,28 +104,42 @@ class VariantService
         });
     }
 
-    public function getVariantsByProduct($productId)
-    {
-        return Variant::with(['variantSpecValues.specification', 'variantSpecValues.spec_options'])
-                      ->where('product_id', $productId)
-                      ->get();
+     public function getVariantsByProduct($productId){
+        $variants = Variant::with(['variantSpecValues.specification', 'variantSpecValues.spec_options'])
+                        ->where('product_id', $productId)
+                        ->get();
+
+        // Thêm thuộc tính img cho từng biến thể
+        foreach ($variants as $variant) {
+            $variant->img = $variant->image ? asset('storage/' . $variant->image) : null;
+        }
+
+    return $variants;
     }
 
-    public function getVariantDetail($variantId)
-    {
-        return Variant::with(['variantSpecValues.specification', 'variantSpecValues.spec_options'])
-                      ->findOrFail($variantId);
+
+    public function getVariantDetail($variantId){
+        $variant = Variant::with(['variantSpecValues.specification', 'variantSpecValues.spec_options'])
+                        ->findOrFail($variantId);
+
+        $variant->img = $variant->image ? asset('storage/' . $variant->image) : null;
+
+        return $variant;
     }
-    
+
 
     public function updateVariant(int $variantId, array $data){
         return DB::transaction(function () use ($variantId, $data) {
             $variant = Variant::findOrFail($variantId);
-
+            
+            
             // Nếu cần cập nhật SKU dựa theo spec_values mới, tạo lại SKU
             if (!empty($data['spec_values'])) {
                 $data['sku'] = $this->generateSkuFromSpec(array_merge(['product_id' => $variant->product_id], $data));
             }
+
+         
+           $oldImage = $variant->image;
 
             // Cập nhật thông tin chính của variant
             $variant->update([
@@ -137,8 +147,12 @@ class VariantService
                 'price'    => $data['price'] ?? $variant->price,
                 'discount' => $data['discount'] ?? $variant->discount,
                 'stock'    => $data['stock'] ?? $variant->stock,
-            ]);
+                'image' => $data['image'] ?? $variant->image,
 
+            ]);
+               if (!empty($data['image']) && $oldImage && Storage::disk('public')->exists($variant->image)) {
+                Storage::disk('public')->delete($oldImage);
+            }
             // Cập nhật spec_values nếu có
             if (!empty($data['spec_values'])) {
                 foreach ($data['spec_values'] as $specValue) {
@@ -178,4 +192,5 @@ class VariantService
         });
     }
 
+   
 }

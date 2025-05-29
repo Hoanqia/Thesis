@@ -51,16 +51,16 @@ Route::middleware(['auth:api'])->group(function () {
             Route::get('/specifications/search',[SpecificationController::class,'search']);
             Route::get('/specifications/{categoryId}',[SpecificationController::class,'index']);
 
-
             Route::get('/spec-options/{specId}',[SpecOptionController::class,'index']);
             Route::delete('/spec-options/{id}',[SpecOptionController::class,'destroy']);
             Route::patch('/spec-options/{id}',[SpecOptionController::class,'update']);
             Route::get('/spec-options/{id}',[SpecOptionController::class,'get']);
             Route::post('/spec-options',[SpecOptionController::class,'store']);
 
+            Route::get('/variants/{variantId}/spec-values',[VariantController::class,'getSpecValuesByVariantId']);
 
-              Route::delete('/variants/{variantId}',[VariantController::class,'destroy']);
-            Route::patch('/variants/{variantId}',[VariantController::class,'update']);
+            Route::delete('/variants/{variantId}',[VariantController::class,'destroy']);
+            Route::patch('/variants/{variantId}/update',[VariantController::class,'update']);
             Route::get('/{productId}/variants',[VariantController::class,'getByProduct']);
             Route::get('/variants/{variantId}',[VariantController::class,'get']);
             Route::post('/variants',[VariantController::class,'store']);
@@ -89,8 +89,8 @@ Route::middleware(['auth:api'])->group(function () {
             Route::get('/products',[ProductController::class,'getAll']);
             Route::get('/products/search',[ProductController::class,'index']); // index này là search, còn các index khác là get All
             
-
-            
+            Route::patch('/users/{id}',[UserController::class,'changeStatusUser']);
+            Route::get('/users',[UserController::class,'getAll']);
           
         });
     });

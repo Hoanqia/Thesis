@@ -1,66 +1,100 @@
-"use client"; // vì dùng useState, effect nếu cần
+"use client";
 
 import React, { useEffect, useState } from "react";
-import AdminLayout from "../layout"; // hoặc "@/app/admin/layout" nếu dùng alias
-import axios from "axios";
+import CrudGeneric, { FieldConfig, CrudItem } from "@/components/ui/CrudGeneric";
+import { AdminApi } from "@/features/users/api/userApi";
+import toast from "react-hot-toast";
 
-type User = {
-  id: number;
+interface User extends CrudItem {
   name: string;
   email: string;
-  phone_number: string;
   role: string;
-  status: boolean;
-};
+  status: number; // dùng 0 | 1 thay vì boolean
+}
 
-export default function AdminUsersPage() {
+export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-
+  
   useEffect(() => {
-    // Thay bằng API thật của bạn
-    axios.get<User[]>("/api/admin/users")
-    .then((res) => {
-        setUsers(res.data);
-        setLoading(false);
-    })
-    .catch(() => {
-        setLoading(false);
-    });
+    AdminApi.getAllUsers()
+      .then((res) => {
+        const mappedUsers = res.map((u) => ({
+          ...u,
+          status: u.status ? 1 : 0, // giữ kiểu 0 | 1
+        }));
+        setUsers(mappedUsers);
+      })
+      .catch((err) => console.error("Lỗi khi tải user:", err));
   }, []);
 
-  return (
-    <AdminLayout>
-      <h1 className="text-2xl font-bold mb-4">Danh sách Users</h1>
+  const fields: (keyof User)[] = ["name", "email", "role", "status"];
+  const columns: (keyof User)[] = ["id", "name", "email", "role", "status"];
 
-      {loading ? (
-        <p>Loading...</p>
-      ) : (
-        <table className="w-full border border-gray-300 rounded-md">
-          <thead className="bg-gray-200">
-            <tr>
-              <th className="border px-4 py-2">ID</th>
-              <th className="border px-4 py-2">Name</th>
-              <th className="border px-4 py-2">Email</th>
-              <th className="border px-4 py-2">Phone</th>
-              <th className="border px-4 py-2">Role</th>
-              <th className="border px-4 py-2">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((user) => (
-              <tr key={user.id} className="hover:bg-gray-100">
-                <td className="border px-4 py-2">{user.id}</td>
-                <td className="border px-4 py-2">{user.name}</td>
-                <td className="border px-4 py-2">{user.email}</td>
-                <td className="border px-4 py-2">{user.phone_number}</td>
-                <td className="border px-4 py-2 capitalize">{user.role}</td>
-                <td className="border px-4 py-2">{user.status ? "Active" : "Inactive"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </AdminLayout>
+  const fieldsConfig: Partial<Record<keyof User, FieldConfig>> = {
+    name: {
+      label: "Họ tên",
+      type: "text",
+      required: true,
+    },
+    email: {
+      label: "Email",
+      type: "text",
+      required: true,
+    },
+    role: {
+      label: "Vai trò",
+      type: "select",
+      options: [
+        { label: "Admin", value: "admin" },
+        { label: "User", value: "user" },
+      ],
+    },
+    status: {
+      label: "Trạng thái",
+      type: "select",
+      options: [
+        { label: "Hoạt động", value: 1 },
+        { label: "Tạm khóa", value: 0 },
+      ],
+    },
+  };
+
+ const handleToggleStatus = async (id: number) => {
+  const user = users.find(u => u.id === id);
+  if (!user) {
+    toast.error(`Người dùng với id ${id} không tồn tại`);
+    return;
+  }
+  try {
+    const newStatus = user.status === 1 ? 0 : 1;
+    const success = await AdminApi.changeStatusUser(id, newStatus);
+
+    if (success) {
+      setUsers(prev =>
+        prev.map(u => (u.id === id ? { ...u, status: newStatus } : u))
+      );
+      toast.success(`Đã ${newStatus === 1 ? "kích hoạt" : "khóa"} tài khoản của ${user.name}`);
+    } else {
+      toast.error("Không thể thay đổi trạng thái");
+    }
+  } catch {
+    toast.error("Chuyển trạng thái thất bại");
+  }
+};
+
+
+  return (
+    <CrudGeneric<User>
+      title="Quản lý người dùng"
+      initialData={users}
+      columns={columns}
+      fields={fields}
+      fieldsConfig={fieldsConfig}
+      onCreate={(item) => console.log("Tạo:", item)}
+      onUpdate={(id, item) => console.log("Cập nhật:", id, item)}
+      onDelete={(id) => console.log("Xoá:", id)}
+      onToggleStatus={handleToggleStatus}
+      onChange={(updated) => setUsers(updated)}
+    />
   );
 }

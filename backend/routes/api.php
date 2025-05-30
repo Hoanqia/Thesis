@@ -61,7 +61,6 @@ Route::middleware(['auth:api'])->group(function () {
 
             Route::delete('/variants/{variantId}',[VariantController::class,'destroy']);
             Route::patch('/variants/{variantId}/update',[VariantController::class,'update']);
-            Route::get('/{productId}/variants',[VariantController::class,'getByProduct']);
             Route::get('/variants/{variantId}',[VariantController::class,'get']);
             Route::post('/variants',[VariantController::class,'store']);
             
@@ -86,7 +85,7 @@ Route::middleware(['auth:api'])->group(function () {
             Route::patch('/products/{slug}',[ProductController::class,'edit']);
             Route::delete('/products/{slug}',[ProductController::class,'destroy']);
             Route::post('/products',[ProductController::class,'store']);
-            Route::get('/products',[ProductController::class,'getAll']);
+            // Route::get('/products',[ProductController::class,'getAll']);
             Route::get('/products/search',[ProductController::class,'index']); // index này là search, còn các index khác là get All
             
             Route::patch('/users/{id}',[UserController::class,'changeStatusUser']);
@@ -121,5 +120,6 @@ Route::get('/products/{slug}',[ProductController::class,'get']);
 Route::get('/products',[ProductController::class,'getAll']);
 
 Route::get('/featured-products', [ProductController::class, 'getFeaturedProducts']);
+Route::get('/{productId}/variants',[VariantController::class,'getByProduct']);
 
 

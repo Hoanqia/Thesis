@@ -14,7 +14,7 @@ export interface Product {
 
 // Lấy danh sách products
 export async function fetchProducts(): Promise<Product[]> {
-  return axiosRequest<{ data: Product[] }>("admin/products", "GET")
+  return axiosRequest<{ data: Product[] }>("products", "GET")
     .then(res => res.data);
 }
 
@@ -50,7 +50,7 @@ export async function updateProduct(
 // Xóa product bằng slug
 export async function deleteProduct(slug: string): Promise<void> {
   return axiosRequest<{ message: string }>(`admin/products/${slug}`, "DELETE")
-    .then(() => {}); // không cần trả gì về
+    .then(() => {}); 
 }
 
 // Toggle status (chuyển trạng thái)

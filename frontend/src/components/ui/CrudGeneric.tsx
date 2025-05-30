@@ -26,6 +26,7 @@ export interface FieldConfig {
     onChange: (value: any) => void;
   }) => React.ReactNode;
     accept?: string;  // thêm dòng này
+    
 }
 
 
@@ -48,7 +49,7 @@ interface CrudGenericProps<T extends CrudItem> {
   fieldsConfig?: Partial<Record<keyof T, FieldConfig>>;  // <--- thêm prop này
   onChange?: (data: T[]) => void;
   extraForm?: React.ReactNode;
-
+  
 }
 
 export default function CrudGeneric<T extends CrudItem>({
@@ -65,6 +66,7 @@ export default function CrudGeneric<T extends CrudItem>({
   fieldsConfig,  // <-- thêm đây
   onChange,
   extraForm,
+ 
 }: CrudGenericProps<T>) {
   const [data, setData] = useState<T[]>(initialData);
   const [search, setSearch] = useState("");

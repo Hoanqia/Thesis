@@ -24,12 +24,12 @@ const baseUrl = "/admin";
 
 export const variantApi = {
   fetchByProduct: async (productId: number): Promise<Variant[]> => {
-    return axiosRequest<{ data: Variant[] }>(`${baseUrl}/${productId}/variants`, "GET")
+    return axiosRequest<{ data: Variant[] }>(`${productId}/variants`, "GET")
       .then(res => res.data);
   },
 
   fetchById: async (id: number): Promise<Variant> => {
-    return axiosRequest<{ data: Variant }>(`${baseUrl}/variants/${id}`, "GET")
+    return axiosRequest<{ data: Variant }>(`variants/${id}`, "GET")
       .then(res => res.data);
   },
   

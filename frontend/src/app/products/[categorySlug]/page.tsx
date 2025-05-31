@@ -1,21 +1,33 @@
 "use client"
-import { useEffect, useState } from "react";
+import { useEffect, useState, use  } from "react";
 import { ProductCard } from "@/features/products/components/ProductCard";
 import { Product, fetchProducts } from "@/features/products/api/productApi";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import {fetchProductsbyCatSlug} from "@/features/products/api/productApi"
 
-export default function ProductListPage() {
+interface Props {
+     params: Promise<{ categorySlug: string }>;
+
+  }
+
+export default function ProductListPage({ params }: Props) {
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState("");
+  const { categorySlug } = use(params);
 
   useEffect(() => {
-    const loadProducts = async () => {
-      const data = await fetchProducts();
+   const loadProducts = async () => {
+    try {
+      const data = await fetchProductsbyCatSlug(categorySlug);
       setProducts(data);
-    };
-    loadProducts();
-  }, []);
+    } catch (error) {
+      console.error("Lỗi khi tải products theo categorySlug:", error);
+      setProducts([]); // hoặc giữ nguyên, tùy bạn
+    }
+  };
+  loadProducts();
+}, [categorySlug]);
 
   return (
     <div className="grid grid-cols-12 gap-6 p-6">

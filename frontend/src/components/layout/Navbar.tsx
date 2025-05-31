@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect , useMemo} from "react";
 import Cookies from "js-cookie";
 import { Menu, X, ShoppingCart, Bell, ChevronDown } from "lucide-react";
 import { axiosRequest } from '@/lib/axiosRequest';
@@ -11,6 +11,9 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+    DropdownMenuSub,
+    DropdownMenuSubTrigger,
+  DropdownMenuSubContent
 } from "@/components/ui/dropdown-menu";
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 
@@ -19,7 +22,7 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from "@/components/ui/popover";
-
+import { Category , fetchCategories} from "@/features/categories/api/categoryApi";
 
 
 
@@ -27,6 +30,22 @@ export default function Navbar() {
   
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([])
+ const parentCategories = useMemo(() => categories.filter(cat => cat.id_parent === null), [categories]);
+
+    const childrenMap = useMemo(() => {
+      const map: Record<number, Category[]> = {};
+      categories.forEach(cat => {
+        if (typeof cat.id_parent === 'number') {
+          if (!map[cat.id_parent]) {
+            map[cat.id_parent] = [];
+          }
+          map[cat.id_parent].push(cat);
+        }
+      });
+      return map;
+    }, [categories]);
+
 
   const logoutHandler = async () => {
   try {
@@ -38,6 +57,15 @@ export default function Navbar() {
 };
 
   useEffect(() => {
+
+    fetchCategories()
+      .then((data) => {
+        setCategories(data)
+      })
+      .catch((err) => {
+        console.error('Lỗi khi load categories:', err)
+      });
+
     const checkAuth = async () => {
       try {
         const { user } = await axiosRequest('auth/me', 'GET');
@@ -56,7 +84,7 @@ export default function Navbar() {
 
     checkAuth();
   }, []);
-
+  
 
 
   return (
@@ -76,38 +104,38 @@ export default function Navbar() {
         {/* Desktop Menu */}
         <div className="hidden lg:flex lg:gap-x-6 items-center">
 
-          {/* Dropdown Sản phẩm */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                className="inline-flex items-center text-sm font-semibold text-gray-700 hover:text-blue-500 focus:outline-none"
-                aria-haspopup="true"
-              >
-                Sản phẩm
-                <ChevronDown className="ml-1 w-4 h-4" />
-              </button>
-            </DropdownMenuTrigger>
 
-            <DropdownMenuContent className="w-56">
-              <DropdownMenuItem asChild>
-                <Link href="/products/phones" onClick={() => {}}>
-                  Điện thoại
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/products/laptops" onClick={() => {}}>
-                  Laptop
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/products/headphones" onClick={() => {}}>
-                  Tai nghe
-                </Link>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="inline-flex items-center text-sm font-semibold text-gray-700 hover:text-blue-500 focus:outline-none" aria-haspopup="true">
+          Sản phẩm
+          <ChevronDown className="ml-1 w-4 h-4" />
+        </button>
+      </DropdownMenuTrigger>
 
-          <Link href="/contact" className="text-sm font-semibold text-gray-700 hover:text-blue-500">Liên hệ</Link>
+      <DropdownMenuContent className="w-56">
+        {parentCategories.map(parent => 
+          childrenMap[parent.id] ? (
+            <DropdownMenuSub key={parent.id}>
+              <DropdownMenuSubTrigger>{parent.name}</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                {childrenMap[parent.id].map(child => (
+                  <DropdownMenuItem asChild key={child.slug}>
+                    <Link href={`/products/${child.slug}`}>{child.name}</Link>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          ) : (
+            <DropdownMenuItem asChild key={parent.slug}>
+              <Link href={`/products/${parent.slug}`}>{parent.name}</Link>
+            </DropdownMenuItem>
+          )
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  
+           <Link href="/contact" className="text-sm font-semibold text-gray-700 hover:text-blue-500">Liên hệ</Link>
 
           <Link href="/cart" className="flex items-center gap-1 text-sm font-semibold text-gray-700 hover:text-blue-500">
             <ShoppingCart className="w-5 h-5" />

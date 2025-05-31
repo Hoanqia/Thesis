@@ -111,7 +111,7 @@ class VariantService
 
         // Thêm thuộc tính img cho từng biến thể
         foreach ($variants as $variant) {
-            $variant->img = $variant->image ? asset('storage/' . $variant->image) : null;
+            $variant->image = $variant->image ? asset('storage/' . $variant->image) : null;
         }
 
     return $variants;

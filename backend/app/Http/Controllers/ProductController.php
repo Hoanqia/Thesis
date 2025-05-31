@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 use App\Services\ProductService;
 use App\Exceptions\ApiExceptionHandler;
 use Illuminate\Support\Facades\Log;
-
+use App\Models\Category;
 class ProductController extends Controller
 {
     protected $productService;
@@ -45,7 +45,25 @@ class ProductController extends Controller
             return ApiExceptionHandler::handleException($e);
         }
     }
-
+    public function getAllByCatSlug($slug){
+        $category = Category::where('slug',$slug)->first();
+        if(!$category){
+            return response()->json([
+                'messsage' => 'Not found category',
+                'status' => 'error',
+            ],404);
+        }
+        try {
+            $products = $this->productService->getProductsByCatId($category->id);
+            return response()->json([
+                'message' => $products->isEmpty() ? 'Không có sản phẩm' : 'Lấy danh sách thành công',
+                'status' => 'success',
+                'data' => $products,
+            ]);
+        }catch(\Exception $e){
+            return ApiExceptionHandler::handleException($e);
+        }
+    }
     public function get($slug)
     {
         try {

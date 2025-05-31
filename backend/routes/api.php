@@ -70,7 +70,6 @@ Route::middleware(['auth:api'])->group(function () {
             Route::delete('/categories/{slug}',[CategoryController::class,'destroy']);
             Route::get('/categories/{slug}',[CategoryController::class,'get']);
             Route::post('/categories', [CategoryController::class, 'store']);
-            Route::get('/categories', [CategoryController::class, 'getAll']);
             Route::get('/categories-parents',[CategoryController::class,'getParentCats']);
 
             Route::delete('/brands/{slug}',[BrandController::class,'destroy']);
@@ -115,8 +114,10 @@ Route::middleware(['auth:api'])->group(function () {
     
     
 }); // ngoặc xác thực api
+Route::get('/categories', [CategoryController::class, 'getAll']);
 
 Route::get('/products/{slug}',[ProductController::class,'get']);
+Route::get('/{slug}/products',[ProductController::class,'getAllByCatSlug']);
 Route::get('/products',[ProductController::class,'getAll']);
 
 Route::get('/featured-products', [ProductController::class, 'getFeaturedProducts']);

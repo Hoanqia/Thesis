@@ -31,6 +31,9 @@ class ProductService
     {
         return Product::with(['brand', 'category'])->get();
     }
+    public function getProductsByCatId($catId){
+        return Product::with(['brand','category'])->where('cat_id',$catId)->get();
+    }
     public function getFeaturedProducts()
     {
         return Product::with(['brand','variants'])->where('is_featured',1)->get();

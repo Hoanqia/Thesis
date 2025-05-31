@@ -29,7 +29,7 @@ export interface CategoryUpdateDto {
  * Lấy danh sách categories
  */
 export function fetchCategories(): Promise<Category[]> {
-  return axiosRequest<{ data: Category[] }>('/admin/categories', 'GET')
+  return axiosRequest<{ data: Category[] }>('/categories', 'GET')
     .then(res => res.data);
 }
 

@@ -18,6 +18,13 @@ export async function fetchProducts(): Promise<Product[]> {
     .then(res => res.data);
 }
 
+export async function fetchProductsbyCatSlug(categorySlug: string): Promise<Product[]>{
+    return axiosRequest<{data: Product[]}>(`${categorySlug}/products`,"GET").then(res => res.data)
+}
+
+export async function fetchProductBySlug(productSlug: string): Promise<Product> {
+    return axiosRequest<{data: Product}>(`products/${productSlug}`,"GET").then(res => res.data)
+}
 // Tạo mới product
 export async function createProduct(data: {
   name: string;

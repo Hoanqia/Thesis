@@ -9,17 +9,45 @@ export interface Variant {
   stock: number;
   image?: string;
   status?: number;
+
+  variant_spec_values: SpecValue[];
+
 }
 
 export interface SpecValue {
   id: number;
-  variantId: number;
+  // variantId: number;
+    variant_id: number;
+      spec_id: number;         // giống với JSON trả về
   value_text: string | null;
   value_int: number | null;
   value_decimal: number | null;
   option_id: number | null;
+
+    specification: Specification;
+  spec_options: SpecOption | null;
+created_at: string;
+  updated_at: string;
 }
 
+export interface Specification {
+  id: number;
+  category_id: number;
+  name: string;           // ví dụ: "RAM", "Màu sắc", "Dung lượng bộ nhớ"
+  data_type: "int" | "decimal" | "text" | "option";
+  unit: string | null;    // ví dụ: "GB", "Ghz", ... hoặc null nếu không có
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SpecOption {
+  id: number;
+  spec_id: number;
+  value: string;          // ví dụ: "Xám", "Đen", ...
+  created_at: string;
+  updated_at: string;
+}
 const baseUrl = "/admin";
 
 export const variantApi = {

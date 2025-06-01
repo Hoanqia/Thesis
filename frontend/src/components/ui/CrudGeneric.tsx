@@ -68,7 +68,7 @@ export default function CrudGeneric<T extends CrudItem>({
   extraForm,
  
 }: CrudGenericProps<T>) {
-  const [data, setData] = useState<T[]>(initialData);
+  const [data, setData] = useState<T[]>(initialData ?? []);
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<T | null>(null);
@@ -78,8 +78,8 @@ export default function CrudGeneric<T extends CrudItem>({
   const itemsPerPage = 5;
 
   useEffect(() => {
-    setData(initialData);
-  }, [initialData]);
+  setData(initialData ?? []);
+}, [initialData]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return data;

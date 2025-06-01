@@ -21,6 +21,7 @@ class VariantController extends Controller
     }
 
    public function store(Request $request){
+                        \Log::info('All request input:', $request->all());
         try {
             $validated = $request->validate([
                 'product_id' => 'required|exists:products,id',

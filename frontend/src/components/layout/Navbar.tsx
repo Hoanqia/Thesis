@@ -23,11 +23,11 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { Category , fetchCategories} from "@/features/categories/api/categoryApi";
-
-
+import { useCartStore } from "@/store/cartStore";
+import { cartApi } from "@/features/cart/api/cartApi";
 
 export default function Navbar() {
-  
+    const totalItems = useCartStore((state) => state.getTotalItems());
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [categories, setCategories] = useState<Category[]>([])
@@ -58,6 +58,9 @@ export default function Navbar() {
 
   useEffect(() => {
 
+      if (isLoggedIn) {
+      useCartStore.getState().fetchCart();
+  }
     fetchCategories()
       .then((data) => {
         setCategories(data)
@@ -83,7 +86,7 @@ export default function Navbar() {
     };
 
     checkAuth();
-  }, []);
+  }, [isLoggedIn]);
   
 
 
@@ -137,9 +140,17 @@ export default function Navbar() {
   
            <Link href="/contact" className="text-sm font-semibold text-gray-700 hover:text-blue-500">Liên hệ</Link>
 
-          <Link href="/cart" className="flex items-center gap-1 text-sm font-semibold text-gray-700 hover:text-blue-500">
-            <ShoppingCart className="w-5 h-5" />
-          </Link>
+          <Link
+        href="/cart"
+        className="relative flex items-center gap-1 text-sm font-semibold text-gray-700 hover:text-blue-500"
+      >
+        <ShoppingCart className="w-5 h-5" />
+        {totalItems > 0 && (
+          <span className="absolute -top-1 -right-2 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+            {totalItems}
+          </span>
+        )}
+</Link>
 
           {/* Notification Bell with Popover */}
           <Popover>

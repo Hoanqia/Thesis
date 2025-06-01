@@ -185,6 +185,13 @@ export const CrudModal = <T extends CrudItem>({
                         className="mt-2 max-h-32 rounded border shadow"
                       />
                     )}
+                    {value && typeof value === "string" && (
+                        <img
+                          src={`${process.env.NEXT_PUBLIC_API_URL}/storage/${value}`}
+                          alt="current"
+                          className="mt-2 max-h-32 rounded border shadow"
+                        />
+                      )}
                   </div>
                 );
               }

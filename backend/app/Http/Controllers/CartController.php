@@ -19,7 +19,7 @@ class CartController extends Controller
             $cartData = $this->cartService->getCartWithItems();
             if ($cartData) {
                 return response()->json([
-                    'message' => !$cartData || $cartData['cart']->cart_items->isEmpty() ? 'Giỏ hàng trống' : 'Lấy giỏ hàng thành công',
+                    'message' => !$cartData || $cartData['cart']->cartItems->isEmpty() ? 'Giỏ hàng trống' : 'Lấy giỏ hàng thành công',
                     'status' => 'success',
                     'data' => $cartData['cart'] ?? [],
                     'total_price' => $cartData['total_price'],

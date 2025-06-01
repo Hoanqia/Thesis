@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use App\Exceptions\ApiExceptionHandler;
 use Illuminate\Support\Facades\Log;
 use App\Models\Brand;
+use App\Models\Category;
+use App\Models\Product;
 use Illuminate\Support\Str;
 use App\Services\SlugService;
 
@@ -39,6 +41,30 @@ class BrandController extends Controller
         }
     }
 
+    public function getAllbyCat($slug){
+        $category = Category::where('slug',$slug)->first();
+        if(!$category){
+            return response()->json([
+                'message' => 'Không tim thấy category',
+                'status' => 'success',
+            ],404);
+        }
+        try {
+            $brands = Brand::whereHas('products', function ($query) use ($category){
+                $query->where('cat_id',$category->id);
+            })->get();
+            if($brands->isEmpty()){
+                return response()->json()->noContent();
+            }
+            return response()->json([
+                'message' => 'Lấy dữ liệu thành công',
+                'status' => 'success',
+                'data' => $brands,
+            ],200);
+        }catch(\Exception $e){
+            return ApiExceptionHandler::handleException($e);
+        }
+    }
     
     public function getAll(){
         try {

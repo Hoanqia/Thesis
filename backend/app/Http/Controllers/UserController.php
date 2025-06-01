@@ -81,8 +81,13 @@ class UserController extends Controller
                 'password' => Hash::make(Str::random(24)),
                 'role' => 'customer',
             ]);
-        }
+                $user->refresh();
 
+            if ($user->role === 'customer') {
+                 $cart = $this->cartService->getOrCreateCart($user);
+            }
+        }
+        
         $accessToken = JWTAuth::fromUser($user);
         $refreshToken = JWTAuth::fromUser($user);
         // Redirect về frontend với access_token và role dưới dạng query param
@@ -212,7 +217,7 @@ class UserController extends Controller
     // Lấy user, tạo cart nếu cần
     $user = Auth::user();
     if ($user->role === 'customer') {
-        $cart = $this->cartService->getOrCreateCart();
+        $cart = $this->cartService->getOrCreateCart($user);
     }
     Log::info('Auth attempt success', ['user_id' => $user->id]);
 

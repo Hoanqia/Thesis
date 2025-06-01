@@ -39,7 +39,7 @@ Route::prefix('auth')->group(function () {
 });
 
 
-Route::middleware(['auth:api'])->group(function () {
+Route::middleware(['jwt.auth'])->group(function () {
     Route::middleware('role:admin')->group(function (){
         Route::prefix('admin')->group(function () {
 
@@ -68,7 +68,6 @@ Route::middleware(['auth:api'])->group(function () {
             Route::get('/categories/{categoryId}/specifications',[SpecificationController::class,'index']);
             Route::patch('/categories/{slug}',[CategoryController::class,'edit']);
             Route::delete('/categories/{slug}',[CategoryController::class,'destroy']);
-            Route::get('/categories/{slug}',[CategoryController::class,'get']);
             Route::post('/categories', [CategoryController::class, 'store']);
             Route::get('/categories-parents',[CategoryController::class,'getParentCats']);
 
@@ -122,5 +121,6 @@ Route::get('/products',[ProductController::class,'getAll']);
 
 Route::get('/featured-products', [ProductController::class, 'getFeaturedProducts']);
 Route::get('/{productId}/variants',[VariantController::class,'getByProduct']);
-
+Route::get('/categories/{slug}/brands',[BrandController::class,'getAllbyCat']);
+Route::get('/categories/{slug}',[CategoryController::class,'get']);
 

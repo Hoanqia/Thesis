@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useRouter, useParams } from 'next/navigation';
+import { useCartStore } from '@/store/cartStore';
 
 import {
   Product,
@@ -22,6 +23,7 @@ export default function Page() {
     categorySlug: string;
     productSlug: string;
   };
+    const addItem = useCartStore((state) => state.addItem);
 
   const [product, setProduct] = useState<Product | null>(null);
   const [variants, setVariants] = useState<Variant[]>([]);
@@ -29,6 +31,15 @@ export default function Page() {
   const [mainImage, setMainImage] = useState<string | null>(null);
   const [isZoomed, setIsZoomed] = useState(false);
 
+   const handleAdd = async () => {
+    if (!selectedVariant) {
+      console.warn('Chưa chọn biến thể nào');
+      return;
+    }
+    await addItem(selectedVariant.id, 1);
+    // TODO: show toast hoặc thông báo thành công
+  };
+  
   // Khi component mount, fetch thông tin product (theo slug), sau đó fetch variants theo product.id
   useEffect(() => {
     async function loadData() {
@@ -301,7 +312,7 @@ export default function Page() {
           )}
 
           {/* Button Add to Cart */}
-          <button className="w-full py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition">
+          <button onClick={handleAdd} className="w-full py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition">
             Add to Cart
           </button>
         </div>

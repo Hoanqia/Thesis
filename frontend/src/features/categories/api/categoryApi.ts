@@ -33,7 +33,9 @@ export function fetchCategories(): Promise<Category[]> {
     .then(res => res.data);
 }
 
-
+export function fetchCategoryBySlug(categorySlug: string): Promise<Category>{
+  return axiosRequest<{data: Category}>(`/categories/${categorySlug}`,"GET").then(res => res.data)
+}
 /**
  * Tạo mới category
  */

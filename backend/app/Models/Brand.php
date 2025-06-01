@@ -14,5 +14,8 @@ class Brand extends Model
         'status'
     ];
     protected $table = 'brands';
-    
+     public function products()
+    {
+        return $this->hasMany(Product::class);
+    }
 }

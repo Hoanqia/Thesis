@@ -26,6 +26,9 @@ export async function fetchBrands(): Promise<Brand[]> {
     .then(res => res.data);
 }
 
+export async function fetchBrandsbyCatSlug(categorySlug: string): Promise<Brand[]>{
+  return axiosRequest<{ data: Brand[]}>(`/categories/${categorySlug}/brands`,"GET").then(res => res.data)
+}
 // Tạo mới brand, bắt buộc có name, status không bắt buộc
 export async function createBrand(data: CreateBrandDTO): Promise<Brand> {
   return axiosRequest<{ data: Brand }>("admin/brands", "POST", data)

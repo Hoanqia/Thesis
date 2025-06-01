@@ -6,6 +6,7 @@ use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\Product;
 use App\Models\Variant;
+use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -13,7 +14,7 @@ use Illuminate\Support\Facades\DB;
 class CartService
 {   
     public function removeExpiredItems(){
-        $now = Carbon::now();
+        $now = Carbon::now('Asia/Ho_Chi_Minh');
         DB::table('cart_items')
             ->whereNotNull('expires_at')
             ->where('expires_at', '<', $now)
@@ -30,30 +31,39 @@ class CartService
      *
      * @return \App\Models\Cart
      */
-    public function getCartWithItems(){
-        $this->removeExpiredItems();
-        $cart = Cart::with([
-            'cart_items.variant.product:id,name',
-            'cart_items' => function ($query) {
-                $query->select('id','cart_id','variant_id','quantity','price_at_time','expires_at');
-            }
-        ])
-        ->select('id','user_id')
-        ->where('user_id', Auth::id())
-        ->first();
+   public function getCartWithItems(){
+    $this->removeExpiredItems();
 
-        if ($cart) {
-            $total = $cart->cart_items->sum(function ($item) {
-                return $item->quantity * $item->price_at_time;
-            });
+    $cart = Cart::with([
+        'cartItems:id,cart_id,variant_id,quantity,price_at_time,expires_at',
+        'cartItems.variant:id,product_id,image',
+        'cartItems.variant.product:id,name',
+    ])
+    ->select('id','user_id')
+    ->where('user_id', Auth::id())
+    ->first();
 
-            return [
-                'cart' => $cart,
-                'total_price' => $total
-            ];
-        }
+    if (! $cart) {
         return null;
     }
+
+    // Tính tổng
+    $total = $cart->cartItems->sum(fn($item) => $item->quantity * $item->price_at_time);
+
+    // Gắn full URL cho ảnh variant
+    foreach ($cart->cartItems as $item) {
+        $variant = $item->variant;
+        // nếu cột image lưu đường dẫn relative trong storage, dùng asset()
+        $variant->img = $variant->image
+            ? asset('storage/' . $variant->image)
+            : null;
+    }
+
+    return [
+        'cart'        => $cart,
+        'total_price' => $total,
+    ];
+}
 
 
     /**
@@ -61,11 +71,12 @@ class CartService
      *
      * @return \App\Models\Cart
      */
-    public function getOrCreateCart()
-    {
-        // Lấy hoặc tạo mới giỏ hàng cho người dùng hiện tại
-        return Cart::firstOrCreate(['user_id' => Auth::user()->id]);
-    }
+   public function getOrCreateCart(User $user = null)
+{   
+            $user = $user ?? Auth::user();
+    return Cart::firstOrCreate(['user_id' => $user->id]);
+}
+
 
     /**
      * Thêm một sản phẩm vào giỏ hàng.
@@ -99,7 +110,7 @@ class CartService
         $cartItem->save();
     } else {
         // ✅ Nếu chưa có thì tạo mới
-        $cart->cart_items()->create([
+        $cart->cartItems()->create([
             'variant_id'    => $variantId,
             'quantity'      => $quantity,
             'price_at_time' => $variant->price,
@@ -126,6 +137,7 @@ class CartService
     }
 
     $cartItem->quantity = $quantity;
+    $cartItem->expires_at = Carbon::now('Asia/Ho_Chi_Minh')->addDays(1);
     $cartItem->save();
 }
 
@@ -155,7 +167,7 @@ class CartService
         // Lấy giỏ hàng của người dùng hiện tại và xoá tất cả các item
         $cart = Cart::where('user_id', Auth::user()->id)->first();
         if ($cart) {
-            $cart->cart_items()->delete();
+            $cart->cartItems()->delete();
         }
     }
 }

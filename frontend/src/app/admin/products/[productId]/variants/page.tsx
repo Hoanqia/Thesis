@@ -52,9 +52,11 @@
       }
     };
 
+      const [parentVariantId, setParentVariantId] = useState<number | undefined>(undefined);
 
     const handleCreate = async (form: FormData) => {
-                  setEditingSpecValues({});
+          setParentVariantId(undefined);
+          setEditingSpecValues({});
           setSpecValues({});
           setEditingVariantId(undefined);
 
@@ -62,6 +64,9 @@
 
     console.log("specValues trước khi gửi:", editingSpecValues);  // ✅ đổi chỗ này
         form.append("product_id", String(productId));
+        if (parentVariantId !== undefined) {
+            form.append("parent_variant_id", String(parentVariantId));
+        }
         Object.entries(editingSpecValues).forEach(([specId, val], idx) => {
           form.append(`spec_values[${idx}][spec_id]`, specId);
           if (val.value_text != null)
@@ -90,7 +95,9 @@
   try {
     console.log("specValues trước khi gửi:", editingSpecValues);
     form.append("product_id", String(productId));
-
+    if (parentVariantId !== undefined) {
+      form.append("parent_variant_id", String(parentVariantId));
+    }
     Object.entries(editingSpecValues).forEach(([specId, val], idx) => {
       form.append(`spec_values[${idx}][spec_id]`, specId);
 
@@ -186,7 +193,7 @@
                 const imageUrl = `${process.env.NEXT_PUBLIC_API_URL}/storage/${item.image}`;
                 return imageUrl ? (
                   <img
-                    src={imageUrl}
+                    src={item.image}
                     alt="variant"
                     className="h-10 w-10 object-cover rounded"
                   />
@@ -199,6 +206,27 @@
         onStartEdit={handleEdit}
         extraForm={
             <div className="p-4 border-t">
+                          {/* Chọn parent variant */}
+               <div>
+              <label className="block mb-1 font-medium">Clone specs từ variant:</label>
+              <select
+                value={parentVariantId ?? ""}
+                onChange={e =>
+                  setParentVariantId(
+                    e.target.value ? Number(e.target.value) : undefined
+                  )
+                }
+                className="w-full border rounded p-2"
+              >
+                <option value="">-- Không clone --</option>
+                {variants.map(v => (
+                  <option key={v.id} value={v.id}>
+                    {v.sku} (ID: {v.id})
+                  </option>
+                ))}
+              </select>
+            </div>
+                    {/* Form spec động */}
               <DynamicSpecForm
                key={editingVariantId ?? "new"} 
                 productId={productId}

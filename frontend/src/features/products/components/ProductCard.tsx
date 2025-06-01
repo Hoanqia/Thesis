@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/Button";
 import Image from "next/image";
 import { Product } from "@/features/products/api/productApi";
-
+import { Category, fetchCategoryBySlug } from "@/features/categories/api/categoryApi";
 // Import đầy đủ các interface đã mở rộng trong variantApi.ts
 import {
   Variant,
@@ -25,6 +25,7 @@ interface ProductCardProps {
 export function ProductCard({ product }: ProductCardProps) {
     const router = useRouter();
       const { categorySlug } = useParams<{ categorySlug: string }>();
+    const [category, setCategory] = useState<Category | null>(null);
 
   const [variants, setVariants] = useState<Variant[]>([]);
   const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null);
@@ -43,6 +44,12 @@ export function ProductCard({ product }: ProductCardProps) {
 
   // Khi component mount hoặc product.id thay đổi → fetch variants của product
   useEffect(() => {
+     if (categorySlug) {
+      fetchCategoryBySlug(categorySlug)
+        .then(setCategory)
+        .catch(console.error);
+    }
+
     const fetchVariants = async () => {
       try {
         console.log("Fetching variants from URL:", `${product.id}/variants`);
@@ -63,7 +70,7 @@ export function ProductCard({ product }: ProductCardProps) {
     };
 
     fetchVariants();
-  }, [product.id]);
+  }, [product.id,categorySlug]);
 
 
   /**
@@ -125,14 +132,20 @@ export function ProductCard({ product }: ProductCardProps) {
    *  - Kết quả: "<color> – <ram> – <storage>"
    *  Ví dụ: "Xám – 8 GB – 512 GB"
    */
-  function buildVariantLabel(variant: Variant): string {
-    const colorValue = getSpecValue(variant, "Màu sắc") ;
+  function buildVariantLabel(variant: Variant, category: Category | null): string {
+    // const colorValue = getSpecValue(variant, "Màu sắc") ;
+      const colorValue = getSpecValue(variant, "Màu sắc");
+
+    if (category?.id_parent) {
+      // Nếu là category con, chỉ trả về màu
+      return colorValue ?? "N/A";
+    }
     const ramValue = getSpecValue(variant, "RAM") ;
     const storageValue = getSpecValue(variant, "Dung lượng bộ nhớ") ;
 
     const color = colorValue ?? "N/A";
-    const ram = ramValue ? `RAM ${ramValue}` : "N/A";
-    const storage = storageValue ?? "N/A";
+    const ram = ramValue ? `RAM ${ramValue}` : "";
+    const storage = storageValue ?? "";
 
     return `${color} – ${ram} – ${storage}`;
   }
@@ -151,8 +164,8 @@ export function ProductCard({ product }: ProductCardProps) {
           <Image
             src={getFullImageUrl(selectedVariant?.image) || "/placeholder.jpg"}
             alt={product.name}
-            width={750}
-            height={500}
+            width={400}
+            height={400}
             className="rounded-xl object-contain"
             priority
           />
@@ -182,7 +195,7 @@ export function ProductCard({ product }: ProductCardProps) {
               }
               onClick={() => setSelectedVariant(variant)}
             >
-              {buildVariantLabel(variant)}
+              {buildVariantLabel(variant, category)}
             </Button>
           ))}
         </div>

@@ -20,4 +20,5 @@ class Voucher extends Model
         'status',
     ];
     protected $table = 'vouchers';
+    
 }

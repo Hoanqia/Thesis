@@ -39,6 +39,7 @@ interface CrudGenericProps<T extends CrudItem> {
   title: string;
   initialData: T[];
   columns: (keyof T)[];
+  headerLabels?: Partial<Record<keyof T, string>>;
   renderRow?: (item: T, column: keyof T) => React.ReactNode;
   onCreate?: (item: Omit<T, "id">) => void;
   onUpdate?: (id: number, item: Omit<T, "id">) => void;
@@ -56,6 +57,7 @@ export default function CrudGeneric<T extends CrudItem>({
   title,
   initialData,
   columns,
+  headerLabels,
   renderRow,
   onCreate,
   onUpdate,
@@ -174,9 +176,11 @@ const paginatedData = useMemo(() => {
             {columns.map((col) => (
               <th
                 key={String(col)}
-                className="border border-gray-300 px-4 py-2 bg-gray-100"
+                className="border border-gray-300 px-4 py-2 bg-gray-100 break-words whitespace-normal"
               >
-                {String(col).toUpperCase()}
+              {headerLabels && headerLabels[col]
+                  ? headerLabels[col]
+                  : String(col).toUpperCase()}
               </th>
             ))}
             <th className="border border-gray-300 px-2 py-2 bg-gray-100 text-center w-[80px]">Actions</th>

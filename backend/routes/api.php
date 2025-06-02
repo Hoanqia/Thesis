@@ -10,6 +10,7 @@ use App\Http\Controllers\CustomerOrderController;
 use App\Http\Controllers\SpecificationController;
 use App\Http\Controllers\SpecOptionController;
 use App\Http\Controllers\VariantController;
+use App\Http\Controllers\VoucherController;
 
 // use app\Http\Middleware\RoleMiddleware;
 use Illuminate\Http\Request;
@@ -42,6 +43,10 @@ Route::prefix('auth')->group(function () {
 Route::middleware(['jwt.auth'])->group(function () {
     Route::middleware('role:admin')->group(function (){
         Route::prefix('admin')->group(function () {
+            
+            Route::delete('/vouchers/{id}',[VoucherController::class,'destroy']);
+            Route::patch('/vouchers/{id}',[VoucherController::class,'update']);
+            Route::post('/vouchers',[VoucherController::class,'store']);
 
             Route::get('product/specifications/{productId}',[SpecificationController::class,'index2']);
             Route::delete('/specifications/{id}',[SpecificationController::class,'destroy']);
@@ -124,3 +129,6 @@ Route::get('/{productId}/variants',[VariantController::class,'getByProduct']);
 Route::get('/categories/{slug}/brands',[BrandController::class,'getAllbyCat']);
 Route::get('/categories/{slug}',[CategoryController::class,'get']);
 
+Route::get('/vouchers/{id}',[VoucherController::class,'show']);
+Route::post('/vouchers/validate',[VoucherController::class,'validateVoucher']);
+Route::get('/vouchers',[VoucherController::class,'index']); // get all 

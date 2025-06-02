@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Services\VoucherService;
 use Illuminate\Http\Request;
 use App\Exceptions\ApiExceptionHandler;
+use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 class VoucherController extends Controller
 {
@@ -65,7 +67,6 @@ class VoucherController extends Controller
     {
         try {
             $validated = $request->validate([
-                'code' => 'required|string|unique:vouchers,code',
                 'type' => 'required|in:product_discount,shipping_discount',
                 'discount_percent' => 'nullable|integer|min:0|max:100',
                 'minimum_order_amount' => 'nullable|numeric|min:0',
@@ -74,7 +75,8 @@ class VoucherController extends Controller
                 'max_uses' => 'nullable|integer|min:1',
                 'status' => 'nullable|boolean',
             ]);
-
+            $validated['start_date'] = Carbon::parse($validated['start_date']);
+             $validated['end_date']   = Carbon::parse($validated['end_date']);
             $voucher = $this->voucherService->create($validated);
 
             return response()->json([
@@ -94,7 +96,6 @@ class VoucherController extends Controller
     {
         try {
             $validated = $request->validate([
-                'code' => 'sometimes|string|unique:vouchers,code,' . $id,
                 'type' => 'sometimes|in:product_discount,shipping_discount',
                 'discount_percent' => 'nullable|integer|min:0|max:100',
                 'minimum_order_amount' => 'nullable|numeric|min:0',
@@ -103,7 +104,8 @@ class VoucherController extends Controller
                 'max_uses' => 'nullable|integer|min:1',
                 'status' => 'nullable|boolean',
             ]);
-
+             $validated['start_date'] = Carbon::parse($validated['start_date']);
+             $validated['end_date']   = Carbon::parse($validated['end_date']);
             $voucher = $this->voucherService->update($id, $validated);
 
             if (!$voucher) {

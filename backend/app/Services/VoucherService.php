@@ -6,6 +6,7 @@ use App\Models\Voucher;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Str;
 
 class VoucherService
 {
@@ -33,11 +34,25 @@ class VoucherService
         return Voucher::where('code', $code)->first();
     }
 
+
+
+    public function generateUniqueCode(int $length = 8): string
+    {
+        do {
+            $code = Str::upper(Str::random($length));
+        } while (Voucher::where('code', $code)->exists());
+
+        return $code;
+    }
+
     /**
      * Tạo voucher mới
      */
     public function create(array $data): Voucher
     {
+         if (empty($data['code'])) {
+            $data['code'] = $this->generateUniqueCode();
+        }
         return Voucher::create($data);
     }
 
@@ -80,7 +95,7 @@ class VoucherService
             return ['valid' => false, 'message' => 'Mã giảm giá không hoạt động'];
         }
 
-        $now = Carbon::now();
+        $now = Carbon::now('Asia/Ho_Chi_Minh');
         if ($now->lt($voucher->start_date) || $now->gt($voucher->end_date)) {
             return ['valid' => false, 'message' => 'Mã giảm giá đã hết hạn hoặc chưa bắt đầu'];
         }

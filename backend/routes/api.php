@@ -103,8 +103,7 @@ Route::middleware(['jwt.auth'])->group(function () {
         Route::prefix('customer')->group(function (){
 
             Route::post('/vnpay/create-payment', [VnPayController::class, 'createPayment']);
-            Route::get('customer/vnpay/return',        [VnPayController::class, 'vnpayReturn']);
-            Route::post('/vnpay/ipn',         [VnPayController::class, 'vnpayIpn']);
+           
 
             Route::delete('/cart/{itemId}',[CartController::class,'removeItem']);
             Route::patch('/cart/{itemId}',[CartController::class,'updateItem']);
@@ -150,3 +149,11 @@ Route::get('/categories/{slug}',[CategoryController::class,'get']);
 Route::get('/vouchers/{id}',[VoucherController::class,'show']);
 Route::post('/vouchers/validate',[VoucherController::class,'validateVoucher']);
 Route::get('/vouchers',[VoucherController::class,'index']); // get all 
+
+  Route::prefix('customer')->group(function (){
+
+
+ Route::get('/vnpay/return',        [VnPayController::class, 'vnpayReturn']);
+// Route::post('/vnpay/ipn',         [VnPayController::class, 'vnpayIpn']);
+
+     });

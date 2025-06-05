@@ -15,5 +15,5 @@ return [
     'return_url'  => env('VNP_RETURN_URL'),
 
     // URL IPN (nếu cần)
-    'ipn_url'     => env('VNP_IPN_URL'),
+    // 'ipn_url'     => env('VNP_IPN_URL'),
 ];

@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\UserAddressController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\ProductController;
@@ -11,6 +12,8 @@ use App\Http\Controllers\SpecificationController;
 use App\Http\Controllers\SpecOptionController;
 use App\Http\Controllers\VariantController;
 use App\Http\Controllers\VoucherController;
+use App\Http\Controllers\ReservedStockController;
+use App\Http\Controllers\VnPayController;
 
 // use app\Http\Middleware\RoleMiddleware;
 use Illuminate\Http\Request;
@@ -98,6 +101,11 @@ Route::middleware(['jwt.auth'])->group(function () {
     });
     Route::middleware('role:customer')->group(function (){
         Route::prefix('customer')->group(function (){
+
+            Route::post('/vnpay/create-payment', [VnPayController::class, 'createPayment']);
+            Route::get('customer/vnpay/return',        [VnPayController::class, 'vnpayReturn']);
+            Route::post('/vnpay/ipn',         [VnPayController::class, 'vnpayIpn']);
+
             Route::delete('/cart/{itemId}',[CartController::class,'removeItem']);
             Route::patch('/cart/{itemId}',[CartController::class,'updateItem']);
             Route::post('/cart',[CartController::class,'addToCart']);
@@ -112,6 +120,16 @@ Route::middleware(['jwt.auth'])->group(function () {
             Route::get('/orders/{orderId}',[CustomerOrderController::class,'getOrderDetails']);
             Route::get('/orders',[CustomerOrderController::class,'getUserOrders']);
             Route::post('/orders',[CustomerOrderController::class,'createOrder']);
+            
+            Route::delete('/addresses/{id}',[UserAddressController::class,'destroy']);
+            Route::patch('/addresses/{id}',[UserAddressController::class,'update']);
+            Route::post('/addresses',[UserAddressController::class,'store']);
+            Route::get('/addresses/{id}',[UserAddressController::class,'show']);
+            Route::get('/addresses',[UserAddressController::class,'index']);
+
+            Route::patch('/reserved-stock/confirm/{orderId}',[ReservedStockController::class,'confirm']);
+            Route::post('/reserved-stock',[ReservedStockController::class,'store']);
+            Route::delete('/reserved-stock/release',[ReservedStockController::class,'destroy']);
         });
 
     });

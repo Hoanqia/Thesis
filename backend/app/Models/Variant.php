@@ -27,5 +27,19 @@ class Variant extends Model
         return $this->hasMany(VariantSpecValue::class);
     }   
     
+    public function getFullNameAttribute(){
+        $baseName = $this->product->name;
+
+        $specValues = $this->variantSpecValues()
+            ->with('spec_options') // eager load
+            ->get()
+            ->map(function ($specValue) {
+                return $specValue->spec_options->value ?? null;
+            })
+            ->filter() // loại bỏ null
+            ->implode(' - ');
+
+        return $baseName . ($specValues ? ' - ' . $specValues : '');
+    }
 
 }

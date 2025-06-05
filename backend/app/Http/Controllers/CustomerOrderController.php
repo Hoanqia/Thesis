@@ -27,10 +27,15 @@ class CustomerOrderController extends Controller
             // Validate dữ liệu đầu vào
             $validated = $request->validate([
                 'shipping_id' => 'required|exists:shipping_methods,id',
-                'payment_method' => 'required|string',
+                'payment_method' => 'required|string|in:cod,bank_transfer',
                 'product_voucher_id' => 'nullable|integer',
                 'shipping_voucher_id' => 'nullable|integer',
                 'address_id' => 'nullable|exists:user_addresses,id',
+                'items'               => 'required|array|min:1',
+                'items.*.variant_id'  => 'required|integer|exists:product_variants,id',
+                'items.*.quantity'    => 'required|integer|min:1',
+                'items.*.price_at_time'  => 'required|numeric|min:0',
+
             ]);
 
             // Gọi service để tạo đơn hàng

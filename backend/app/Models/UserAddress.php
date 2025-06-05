@@ -16,6 +16,11 @@ class UserAddress extends Model
         'street_address',
         'phone',
         'is_default',
+        'created_at',
+        'updated_at',
+        'province_name',
+        'district_name',
+        'ward_name',
     ];
     protected $table = 'user_addresses';
     public function user(){

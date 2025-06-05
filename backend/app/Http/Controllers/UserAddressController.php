@@ -62,6 +62,9 @@ class UserAddressController extends Controller
                 'street_address' => 'required|string|max:255',
                 'phone' => 'required|string|max:20',
                 'is_default' => 'nullable|boolean',
+                 'province_name' => 'required|string|max:255',
+                'district_name' => 'required|string|max:255',
+                'ward_name' => 'required|string|max:255',
             ]);
 
             $address = $this->userAddressService->create($validated);
@@ -80,13 +83,17 @@ class UserAddressController extends Controller
     {
         try {
             $validated = $request->validate([
-                'province' => 'sometimes|string|max:255',
-                'district' => 'sometimes|string|max:255',
-                'ward' => 'sometimes|string|max:255',
-                'street_address' => 'sometimes|string|max:255',
-                'phone' => 'sometimes|string|max:20',
+                'province' => 'required|string|max:255',
+                'district' => 'required|string|max:255',
+                'ward' => 'required|string|max:255',
+                'street_address' => 'required|string|max:255',
+                'phone' => 'required|string|max:20',
                 'is_default' => 'nullable|boolean',
+                'province_name' => 'required|string|max:255',
+                'district_name' => 'required|string|max:255',
+                'ward_name' => 'required|string|max:255',
             ]);
+
 
             $address = $this->userAddressService->update($id, $validated);
 

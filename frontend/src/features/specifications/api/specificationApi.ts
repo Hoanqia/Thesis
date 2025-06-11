@@ -37,6 +37,20 @@ export interface UpdateSpecDto {
 
 // Lấy danh sách specifications theo category_id
 // fetchSpecificationsByBrandSlug.ts
+
+
+export async function fetchSpecValueSuggestions(
+  specId: number,
+  query: string = ''
+): Promise<string[]> {
+  // Tạo URL với query params
+  const url = `admin/products/specifications/spec-value-suggestions?spec_id=${specId}&query=${encodeURIComponent(query)}`;
+
+  // Gọi API, backend trả về { success: boolean, suggestions: string[] }
+  return axiosRequest<{ data: string[] }>(url, 'GET')
+    .then(res => res.data);
+}
+
 export async function fetchSpecificationsByCategoryId(id: number): Promise<Specification[]> {
   return axiosRequest<{ data: Specification[] }>(`admin/categories/${id}/specifications`, 'GET')
     .then(res => res.data);

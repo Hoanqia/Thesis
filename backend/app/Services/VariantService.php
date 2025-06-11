@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Models\Variant;
 use App\Models\SpecOption;
-
+use App\Models\Product;
 use App\Models\VariantSpecValue;
 use Illuminate\Support\Facades\DB;
 use Intervention\Image\ImageManager;
@@ -12,9 +12,15 @@ use Intervention\Image\Drivers\Gd\Driver;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Database\Eloquent\Collection;
-
+use Illuminate\Support\Str;
+use App\Services\SpecValueService;
 class VariantService
 {   
+    
+    public function auto_completed_spec_value_recommendation($productId){
+        $product = Product::find($productId);
+        
+    }   
 
      public function showSpecValues($variantId){
             return VariantSpecValue::where('variant_id', $variantId)
@@ -203,18 +209,51 @@ class VariantService
             }
         }
 
-        // 5) Generate SKU từ DB
-        $specValues = VariantSpecValue::with('spec_options')
-            ->where('variant_id', $variant->id)
-            ->get();
+        $product = $variant->product; // đã quan hệ product
+        $baseName = $product->name;
 
-        $sku = $this->generateSkuFromSpecFromDB($variant->product_id, $specValues);
+        $specValues = VariantSpecValue::with(['spec_options', 'specification'])
+            ->where('variant_id', $variant->id)
+            ->get()
+            ->filter(function ($sv) {
+                return in_array($sv->specification->name, ['Màu sắc', 'RAM', 'Dung lượng bộ nhớ']);
+            })
+            ->sortBy(function ($sv) {
+                $order = ['Màu sắc' => 1, 'RAM' => 2, 'Dung lượng bộ nhớ' => 3];
+                return $order[$sv->specification->name] ?? 99;
+            })
+            ->map(function ($sv) {
+                if ($sv->option_id && $sv->spec_options) {
+                    return $sv->spec_options->value;
+                } elseif (!is_null($sv->value_int)) {
+                    return $sv->value_int . 'GB';
+                } elseif (!is_null($sv->value_text)) {
+                    return $sv->value_text;
+                }
+                return null;
+            })
+            ->filter()
+            ->values()
+            ->all();
+
+        // Nối tên sản phẩm và spec values
+        $parts = array_merge(
+            [$baseName],
+            $specValues ?: []
+        );
+        $rawSku = implode(' - ', $parts);
+
+        // Chuyển thành slug và uppercase
+        $sku = Str::upper(Str::slug($rawSku, '-'));
+
+        // 6) Cập nhật SKU
         $variant->update(['sku' => $sku]);
+
 
         return $variant->load(['variantSpecValues.specification', 'variantSpecValues.spec_options']);
     });
 }
-     public function updateVariant(int $variantId, array $data)
+public function updateVariant(int $variantId, array $data)
 {
     return DB::transaction(function () use ($variantId, $data) {
         $variant = Variant::findOrFail($variantId);
@@ -259,18 +298,102 @@ class VariantService
                 ]);
             }
 
-            // Lấy lại spec từ DB rồi sinh SKU mới
-            $specValues = VariantSpecValue::with('spec_options')
-                ->where('variant_id', $variant->id)
-                ->get();
+            // Tạo lại SKU giống createVariant
+            $product = $variant->product;
+            $baseName = $product->name;
 
-            $sku = $this->generateSkuFromSpecFromDB($variant->product_id, $specValues);
+            $specValues = VariantSpecValue::with(['spec_options', 'specification'])
+                ->where('variant_id', $variant->id)
+                ->get()
+                ->filter(function ($sv) {
+                    return in_array($sv->specification->name, ['Màu sắc', 'RAM', 'Dung lượng bộ nhớ']);
+                })
+                ->sortBy(function ($sv) {
+                    $order = ['Màu sắc' => 1, 'RAM' => 2, 'Dung lượng bộ nhớ' => 3];
+                    return $order[$sv->specification->name] ?? 99;
+                })
+                ->map(function ($sv) {
+                    if ($sv->option_id && $sv->spec_options) {
+                        return $sv->spec_options->value;
+                    } elseif (!is_null($sv->value_int)) {
+                        return $sv->value_int . 'GB';
+                    } elseif (!is_null($sv->value_text)) {
+                        return $sv->value_text;
+                    }
+                    return null;
+                })
+                ->filter()
+                ->values()
+                ->all();
+
+            $parts = array_merge([$baseName], $specValues ?: []);
+            $rawSku = implode(' - ', $parts);
+            $sku = Str::upper(Str::slug($rawSku, '-'));
+
             $variant->update(['sku' => $sku]);
         }
 
         return $variant->load(['variantSpecValues.specification', 'variantSpecValues.spec_options']);
     });
 }
+
+//      public function updateVariant(int $variantId, array $data)
+// {
+//     return DB::transaction(function () use ($variantId, $data) {
+//         $variant = Variant::findOrFail($variantId);
+//         $oldImage = $variant->image;
+
+//         // 1) Cập nhật thông tin chính
+//         $variant->update([
+//             'price'    => $data['price'] ?? $variant->price,
+//             'discount' => $data['discount'] ?? $variant->discount,
+//             'stock'    => $data['stock'] ?? $variant->stock,
+//             'image'    => $data['image'] ?? $variant->image,
+//         ]);
+
+//         if (!empty($data['image']) && $oldImage && Storage::disk('public')->exists($oldImage)) {
+//             Storage::disk('public')->delete($oldImage);
+//         }
+
+//         // 2) Nếu có thay đổi spec_values thì cập nhật và regenerate SKU
+//         if (!empty($data['spec_values'])) {
+//             // Lọc lại các giá trị hợp lệ giống createVariant
+//             $data['spec_values'] = array_values(array_filter($data['spec_values'], function ($sv) {
+//                 $hasText = isset($sv['value_text']) && $sv['value_text'] !== '';
+//                 $hasInt = array_key_exists('value_int', $sv) && $sv['value_int'] !== null;
+//                 $hasDecimal = array_key_exists('value_decimal', $sv) && $sv['value_decimal'] !== null;
+//                 $hasOption = isset($sv['option_id']) && $sv['option_id'] !== '';
+//                 return $hasText || $hasInt || $hasDecimal || $hasOption;
+//             }));
+
+//             foreach ($data['spec_values'] as $specValue) {
+//                 VariantSpecValue::where([
+//                     'variant_id' => $variant->id,
+//                     'spec_id'    => $specValue['spec_id'],
+//                 ])->delete();
+
+//                 VariantSpecValue::create([
+//                     'variant_id'    => $variant->id,
+//                     'spec_id'       => $specValue['spec_id'],
+//                     'value_text'    => $specValue['value_text'] ?? null,
+//                     'value_int'     => $specValue['value_int'] ?? null,
+//                     'value_decimal' => $specValue['value_decimal'] ?? null,
+//                     'option_id'     => $specValue['option_id'] ?? null,
+//                 ]);
+//             }
+
+//             // Lấy lại spec từ DB rồi sinh SKU mới
+//             $specValues = VariantSpecValue::with('spec_options')
+//                 ->where('variant_id', $variant->id)
+//                 ->get();
+
+//             $sku = $this->generateSkuFromSpecFromDB($variant->product_id, $specValues);
+//             $variant->update(['sku' => $sku]);
+//         }
+
+//         return $variant->load(['variantSpecValues.specification', 'variantSpecValues.spec_options']);
+//     });
+// }
 
 
      public function getVariantsByProduct($productId){

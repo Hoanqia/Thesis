@@ -41,6 +41,7 @@ export interface OrderItem {
   quantity: number;
   created_at: string;
   updated_at: string;
+  img?: string | null;
 }
 
 /**
@@ -62,12 +63,14 @@ export interface Order {
   shipping_voucher_id: number | null;
   discount_on_products: number;
   discount_on_shipping: number;
-  status: 'pending' | 'shipping' | 'completed' | 'canceled';
+  status: 'pending' | 'shipping' | 'completed' | 'canceled' | 'confirmed';
   payment_method: 'cod' | 'bank_transfer';
   is_paid: boolean;
   created_at: string;
   updated_at: string;
   order_items: OrderItem[];
+    hasReviewed: boolean;
+
 }
 
 
@@ -108,7 +111,7 @@ export const customerOrderApi = {
    */
   getUserOrders: async (): Promise<Order[]> => {
     const response = await axiosRequest<ApiResponse<Order[]>>(
-      'orders',
+      'customer/orders',
       'GET'
     );
     return response.data;
@@ -130,8 +133,8 @@ export const customerOrderApi = {
    */
   cancelOrder: async (orderId: number): Promise<Order> => {
     const response = await axiosRequest<ApiResponse<Order>>(
-      `orders/${orderId}/cancel`,
-      'POST'
+      `customer/orders/${orderId}/cancel`,
+      'PATCH'
     );
     return response.data;
   },
@@ -141,9 +144,95 @@ export const customerOrderApi = {
    */
   confirmReceived: async (orderId: number): Promise<Order> => {
     const response = await axiosRequest<ApiResponse<Order>>(
-      `orders/${orderId}/confirm`,
-      'POST'
+      `customer/orders/${orderId}/confirm`,
+      'PATCH'
     );
     return response.data;
+  },
+  rateMultipleItems: async (orderId: number): Promise<Order> => {
+    const response = await axiosRequest<ApiResponse<Order>>(
+      `customer/orders/${orderId}/confirm`,
+      'PATCH'
+    );
+    return response.data;
+  },
+};
+
+export const adminOrderApi = {
+  /**
+   * Lấy tất cả đơn hàng (mới nhất đến cũ nhất)
+   * GET /admin/orders
+   */
+  getAllOrders: async (): Promise<Order[]> => {
+    const response = await axiosRequest<ApiResponse<Order[]>>(
+      'admin/orders',
+      'GET'
+    );
+    return response.data;
+  },
+
+  /**
+   * Lấy chi tiết một đơn hàng theo ID
+   * GET /admin/orders/{id}
+   */
+  getOrderById: async (orderId: number): Promise<Order> => {
+    const response = await axiosRequest<ApiResponse<Order>>(
+      `admin/orders/${orderId}`,
+      'GET'
+    );
+    return response.data;
+  },
+
+  /**
+   * Xác nhận đơn hàng (từ pending => confirmed)
+   * POST /admin/orders/{id}/confirm
+   */
+  confirmOrder: async (orderId: number): Promise<Order> => {
+    const response = await axiosRequest<ApiResponse<Order>>(
+      `admin/orders/${orderId}/confirm`,
+      'PATCH'
+    );
+    return response.data;
+  },
+
+  /**
+   * Cập nhật trạng thái đơn hàng
+   * PUT /admin/orders/{id}/status
+   * body: { status: 'pending' | 'confirmed' | 'shipping' | 'completed' | 'canceled' }
+   */
+  updateOrderStatus: async (
+    orderId: number,
+    newStatus: 'pending' | 'confirmed' | 'shipping' | 'completed' | 'canceled'
+  ): Promise<Order> => {
+    const payload = { status: newStatus };
+    const response = await axiosRequest<ApiResponse<Order>>(
+      `admin/orders/${orderId}/status`,
+      'PATCH',
+      payload
+    );
+    return response.data;
+  },
+
+  /**
+   * Đánh dấu đơn hàng đã thanh toán
+   * PUT /admin/orders/{id}/paid
+   */
+  markAsPaid: async (orderId: number): Promise<Order> => {
+    const response = await axiosRequest<ApiResponse<Order>>(
+      `admin/orders/${orderId}/paid`,
+      'PATCH'
+    );
+    return response.data;
+  },
+
+  /**
+   * Xóa đơn hàng
+   * DELETE /admin/orders/{id}
+   */
+  deleteOrder: async (orderId: number): Promise<void> => {
+    await axiosRequest<ApiResponse<null>>(
+      `admin/orders/${orderId}`,
+      'DELETE'
+    );
   },
 };

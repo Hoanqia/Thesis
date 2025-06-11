@@ -140,6 +140,8 @@ const placeOrder = async () => {
     const order = await customerOrderApi.createOrder(payload);
     const orderId = order.id;
     if (paymentMethod === "cod") {
+      await reservedStockApi.confirm(orderId);
+      setConfirmed(true);
         router.push(`/checkout/order_success?orderId=${orderId}`);
         return;
       }

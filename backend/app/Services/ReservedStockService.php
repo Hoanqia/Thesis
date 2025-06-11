@@ -36,7 +36,7 @@ class ReservedStockService {
                 ],
                 [
                     'quantity'   => $qty,
-                    'expires_at' => Carbon::now('Asia/Ho_Chi_Minh')->addMinutes(30),
+                    'expires_at' => Carbon::now('Asia/Ho_Chi_Minh')->addDays(3),
                 ]
             );
 

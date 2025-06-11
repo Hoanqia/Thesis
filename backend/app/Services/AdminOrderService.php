@@ -13,7 +13,15 @@ class AdminOrderService
      */
     public function getAllOrders()
     {
-        return Order::with('user', 'orderItems')->latest()->get();
+        $orders = Order::with(['user', 'orderItems.variant'])->latest()->get();
+
+        $orders->each(function ($order) {
+            $order->orderItems->each(function ($item) {
+                $item->img  = $item->variant?->image_url;
+            });
+        });
+
+        return $orders;
     }
 
     /**
@@ -21,48 +29,57 @@ class AdminOrderService
      */
     public function getOrderById($orderId)
     {
-        return Order::with('user', 'orderItems')->findOrFail($orderId);
+        $order = Order::with(['user', 'orderItems.variant'])->findOrFail($orderId);
+
+        foreach ($order->orderItems as $item) {
+            $item->img  = $item->variant?->image_url;
+        }
+
+        return $order;
     }
 
-
-    /* 
-    * Xác nhận đơn hàng 
-    */
-    public function confirmOrder($orderId){
+    /**
+     * Xác nhận đơn hàng
+     */
+    public function confirmOrder($orderId)
+    {
         DB::beginTransaction();
 
         try {
-            // Lấy đơn hàng
-            $order = Order::findOrFail($orderId);
+            $order = Order::with('orderItems.variant')->findOrFail($orderId);
 
             if ($order->status !== 'pending') {
                 throw new \Exception("Không thể xác nhận đơn hàng này.");
             }
 
-            // Kiểm tra và xử lý từng sản phẩm trong đơn hàng
-            foreach ($order->orderItems as $orderItem) {
-                $reservedStock = ReservedStock::where('product_id', $orderItem->product_id)
+            foreach ($order->orderItems as $item) {
+                $variant = $item->variant;
+
+                $reserved = ReservedStock::where('variant_id', $variant->id)
                     ->where('user_id', $order->user_id)
-                    ->where('order_id', $order->id) 
+                    ->where('order_id', $order->id)
                     ->first();
 
-                if (!$reservedStock) {
-                    throw new \Exception("Không thể xác nhận vì sản phẩm '{$orderItem->product->name}' đã hết hạn giữ tạm.");
+                if (! $reserved) {
+                     $order->update([
+                        'status' => 'canceled',
+                    ]);
+                    throw new \Exception("Sản phẩm '{$variant->full_name}' đã hết hạn giữ tạm.");
                 }
 
-                if ($orderItem->product->stock < $orderItem->quantity) {
-                    throw new \Exception("Sản phẩm '{$orderItem->product->name}' không đủ hàng trong kho.");
+                if ($variant->stock < $item->quantity) {
+                    throw new \Exception("Sản phẩm '{$variant->full_name}' không đủ hàng.");
                 }
 
-                // Trừ tồn kho thật
-                $orderItem->product->decrement('stock', $orderItem->quantity);
+                // Giảm tồn kho
+                $variant->decrement('stock', $item->quantity);
 
-                // Xoá bản ghi giữ hàng tạm vì đã xác nhận
-                $reservedStock->delete();
+                // Xoá bản ghi giữ hàng
+                $reserved->delete();
             }
 
-            // Cập nhật trạng thái đơn hàng
-            $order->update(['status' => 'shipping']);
+            // Cập nhật trạng thái về 'confirmed'
+            $order->update(['status' => 'confirmed']);
 
             DB::commit();
 
@@ -76,47 +93,41 @@ class AdminOrderService
     /**
      * Cập nhật trạng thái đơn hàng
      */
-    public function updateOrderStatus($orderId, $newStatus){
+    public function updateOrderStatus($orderId, $newStatus)
+    {
         $order = Order::findOrFail($orderId);
-
-       // Kiểm tra trạng thái hợp lệ
-        $validStatuses = ['pending', 'shipping', 'completed', 'canceled'];
-        if (!in_array($newStatus, $validStatuses)) {
+         if ($order->status === 'canceled' || $order->status === 'pending') {
+        throw new \InvalidArgumentException("Không thể thay đổi trạng thái.");
+    }
+        $validStatuses = ['pending', 'confirmed', 'shipping', 'completed', 'canceled'];
+        if (! in_array($newStatus, $validStatuses)) {
             throw new \InvalidArgumentException("Trạng thái không hợp lệ.");
         }
-
-        // Kiểm tra trạng thái không hợp lệ khi thay đổi
-        if (($order->status === 'confirmed' && in_array($newStatus, ['pending', 'completed']))) {
+        
+        if ($order->status === 'confirmed' && in_array($newStatus, ['pending', 'completed'])) {
             throw new \InvalidArgumentException("Trạng thái không hợp lệ.");
         }
 
         if ($order->status === 'shipping' && in_array($newStatus, ['pending', 'confirmed'])) {
             throw new \InvalidArgumentException("Trạng thái không hợp lệ.");
         }
-        // Xử lý khi cập nhật trạng thái là 'canceled'
+
         if ($newStatus === 'canceled') {
             if ($order->status === 'shipping') {
-                // Nếu đơn đang ở trạng thái shipping, cần hồi lại stock
-                foreach ($order->orderItems as $orderItem) {
-                    // Cộng lại stock
-                    $orderItem->product->increment('stock', $orderItem->quantity);
+                // Hoàn tác tồn kho khi đang giao
+                foreach ($order->orderItems as $item) {
+                    $item->variant()->increment('stock', $item->quantity);
                 }
-            } else if($order->status === 'pending'){
-                // Nếu đơn hàng đang ở trạng thái pending, chỉ cần xoá reserved_stock
-                foreach ($order->orderItems as $orderItem) {
-                    ReservedStock::where('order_id', null) // chỉ xoá reserved_stock chưa có order_id
-                        ->where('product_id', $orderItem->product_id)
-                        ->delete();
-                }
+            } elseif ($order->status === 'pending') {
+                // Xóa giữ hàng khi hủy trước xác nhận
+                ReservedStock::where('order_id', $order->id)->delete();
             }
         }
 
-        // Cập nhật trạng thái mới cho đơn hàng
         $order->update(['status' => $newStatus]);
 
         return $order;
     }
-
 
     /**
      * Cập nhật trạng thái thanh toán
@@ -130,7 +141,7 @@ class AdminOrderService
     }
 
     /**
-     * Xoá đơn hàng (hiếm khi dùng, có thể dùng khi test)
+     * Xoá đơn hàng
      */
     public function deleteOrder($orderId)
     {

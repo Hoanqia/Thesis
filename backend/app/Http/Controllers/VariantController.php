@@ -6,11 +6,14 @@ use App\Services\VariantService;
 use Illuminate\Http\Request;
 use App\Exceptions\ApiExceptionHandler;
 use Illuminate\Support\Facades\Log;
+
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
 use Illuminate\Support\Facades\Storage;
+
 use Illuminate\Http\UploadedFile;
 use App\Models\Variant;
+use Image;
 class VariantController extends Controller
 {
     protected $variantService;
@@ -46,7 +49,8 @@ class VariantController extends Controller
                 $image->storeAs('uploads/variants', $imageName, 'public');
                 $validated['image'] = 'uploads/variants/' . $imageName;
             }
-            // Gọi service xử lý
+
+                    // Gọi service xử lý
             $variant = $this->variantService->createVariant($validated);
 
             return response()->json([

@@ -7,11 +7,45 @@ export interface Product {
   slug: string;
   description: string;
   cat_id: number;
+  categorySlug?: string;
   brand_id: number;
   is_featured: boolean;
   status: boolean;
 }
 
+export async function fetchSearchSuggestions(query: string): Promise<string[]> {
+  try {
+    // Nếu query rỗng, không cần gọi API, trả về mảng rỗng
+    if (!query.trim()) {
+      return [];
+    }
+
+    const response = await axiosRequest<{
+      message: string;
+      status: string;
+      data: string[]; // API của bạn trả về mảng string (các gợi ý)
+    }>(
+      `/suggestions?query=${encodeURIComponent(query)}&limit=5`, // Sử dụng encodeURIComponent cho query
+      "GET"
+    );
+
+    if (response.status === "success" && response.data) {
+      return response.data;
+    } else {
+      console.error("Failed to fetch suggestions:", response.message);
+      return [];
+    }
+  } catch (error) {
+    console.error("Error fetching search suggestions:", error);
+    return [];
+  }
+}
+
+export async function searchProduct(query: string): Promise<Product[]> {
+  // Thay đổi endpoint thành /products/search và gửi query qua params
+  return axiosRequest<{ data: Product[] }>(`/search?query=${encodeURIComponent(query)}`, "GET")
+    .then(res => res.data);
+}
 // Lấy danh sách products
 export async function fetchProducts(): Promise<Product[]> {
   return axiosRequest<{ data: Product[] }>("products", "GET")

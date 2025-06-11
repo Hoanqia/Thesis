@@ -8,12 +8,16 @@ use App\Http\Controllers\BrandController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CustomerOrderController;
+use App\Http\Controllers\AdminOrderController;
 use App\Http\Controllers\SpecificationController;
 use App\Http\Controllers\SpecOptionController;
 use App\Http\Controllers\VariantController;
 use App\Http\Controllers\VoucherController;
 use App\Http\Controllers\ReservedStockController;
 use App\Http\Controllers\VnPayController;
+use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\WishlistController;
+use App\Http\Controllers\UserEventController;
 
 // use app\Http\Middleware\RoleMiddleware;
 use Illuminate\Http\Request;
@@ -46,10 +50,26 @@ Route::prefix('auth')->group(function () {
 Route::middleware(['jwt.auth'])->group(function () {
     Route::middleware('role:admin')->group(function (){
         Route::prefix('admin')->group(function () {
-            
+            Route::get('/products/specifications/spec-value-suggestions',[SpecificationController::class,'fetchValues']);
+
+            Route::patch('/reviews/{id}',[ReviewController::class,'adminReply']);
+            Route::delete('/reviews/{id}',[ReviewController::class,'adminDelete']);
+            Route::get('/reviews',[ReviewController::class,'getAll']);
+
+          
+
+            Route::patch('/orders/{id}/paid',[AdminOrderController::class,'markAsPaid']);
+            Route::patch('/orders/{id}/status',[AdminOrderController::class,'updateStatus']);
+            Route::patch('/orders/{id}/confirm',[AdminOrderController::class,'confirm']);
+            Route::delete('/orders/{id}',[AdminOrderController::class,'destroy']);
+            Route::get('/orders/{id}',[AdminOrderController::class,'show']);
+            Route::get('/orders',[AdminOrderController::class,'index']);
+
+
             Route::delete('/vouchers/{id}',[VoucherController::class,'destroy']);
             Route::patch('/vouchers/{id}',[VoucherController::class,'update']);
             Route::post('/vouchers',[VoucherController::class,'store']);
+
 
             Route::get('product/specifications/{productId}',[SpecificationController::class,'index2']);
             Route::delete('/specifications/{id}',[SpecificationController::class,'destroy']);
@@ -69,7 +89,6 @@ Route::middleware(['jwt.auth'])->group(function () {
 
             Route::delete('/variants/{variantId}',[VariantController::class,'destroy']);
             Route::patch('/variants/{variantId}/update',[VariantController::class,'update']);
-            Route::get('/variants/{variantId}',[VariantController::class,'get']);
             Route::post('/variants',[VariantController::class,'store']);
             
             Route::get('/categories-child/{id}',[CategoryController::class,'getChildCats']);
@@ -101,6 +120,17 @@ Route::middleware(['jwt.auth'])->group(function () {
     });
     Route::middleware('role:customer')->group(function (){
         Route::prefix('customer')->group(function (){
+
+
+            Route::post('/wishlists/add-all-to-cart',[WishlistController::class,'addAllToCart']);
+            Route::post('/wishlists/{id}',[WishlistController::class,'addToCart']);
+            Route::delete('/wishlists/{id}',[WishlistController::class,'destroy']);
+            Route::post('/wishlists',[WishlistController::class,'store']);
+            Route::get('/wishlists',[WishlistController::class,'index']);
+
+            Route::delete('/reviews/{id}',[ReviewController::class,'destroy']);
+            Route::patch('/reviews/{id}',[ReviewController::class,'update']);
+            Route::post('/reviews',[ReviewController::class,'store']);
 
             Route::post('/vnpay/create-payment', [VnPayController::class, 'createPayment']);
            
@@ -135,6 +165,16 @@ Route::middleware(['jwt.auth'])->group(function () {
     
     
 }); // ngoặc xác thực api
+Route::post('/user-events',[UserEventController::class,'store']);
+Route::get('/search',[ProductController::class,'search']);
+Route::get('/suggestions',[ProductController::class,'suggestions']);
+
+Route::get('/variants/{variantId}',[VariantController::class,'get']);
+
+Route::get('/reviews/{id}/detail',[ReviewController::class,'show']);
+Route::get('/reviews/{id}',[ReviewController::class,'index']);
+
+Route::get('/categories/{productId}',[CategoryController::class,'getCatByProductId']);
 Route::get('/categories', [CategoryController::class, 'getAll']);
 
 Route::get('/products/{slug}',[ProductController::class,'get']);
@@ -144,7 +184,7 @@ Route::get('/products',[ProductController::class,'getAll']);
 Route::get('/featured-products', [ProductController::class, 'getFeaturedProducts']);
 Route::get('/{productId}/variants',[VariantController::class,'getByProduct']);
 Route::get('/categories/{slug}/brands',[BrandController::class,'getAllbyCat']);
-Route::get('/categories/{slug}',[CategoryController::class,'get']);
+Route::get('/categories/{slug}/detail',[CategoryController::class,'get']);
 
 Route::get('/vouchers/{id}',[VoucherController::class,'show']);
 Route::post('/vouchers/validate',[VoucherController::class,'validateVoucher']);

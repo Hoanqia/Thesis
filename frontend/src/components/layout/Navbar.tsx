@@ -1,7 +1,8 @@
 "use client";
+import { useRouter } from "next/navigation";
 
 import Link from "next/link";
-import { useState, useEffect , useMemo} from "react";
+import { useState, useEffect , useMemo, FormEvent } from "react";
 import Cookies from "js-cookie";
 import { Menu, X, ShoppingCart, Bell, ChevronDown } from "lucide-react";
 import { axiosRequest } from '@/lib/axiosRequest';
@@ -16,7 +17,7 @@ import {
   DropdownMenuSubContent
 } from "@/components/ui/dropdown-menu";
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
-
+import { Product, searchProduct , fetchSearchSuggestions} from "@/features/products/api/productApi";
 import {
   Popover,
   PopoverTrigger,
@@ -27,7 +28,25 @@ import { useCartStore } from "@/store/cartStore";
 import { cartApi } from "@/features/cart/api/cartApi";
 
 export default function Navbar() {
-    const totalItems = useCartStore((state) => state.getTotalItems());
+
+  const [q, setQ] = useState<string>("");
+  //  const [searchResults, setSearchResults] = useState<Product[]>([]);
+  // const [showSearchResults, setShowSearchResults] = useState(false); // State để điều khiển hiển thị popover
+    const [showSuggestionsPopover, setShowSuggestionsPopover] = useState(false);
+
+  const [suggestionList, setSuggestionList] = useState<string[]>([]);
+
+  const router = useRouter();
+
+   const onSearch = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const trimmed = q.trim();
+    if (!trimmed) return;
+    router.push(`/search?q=${encodeURIComponent(trimmed)}`);
+    setShowSuggestionsPopover(false); // Ẩn gợi ý khi thực hiện tìm kiếm chính
+  };
+
+  const totalItems = useCartStore((state) => state.getTotalItems());
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [categories, setCategories] = useState<Category[]>([])
@@ -87,8 +106,54 @@ export default function Navbar() {
 
     checkAuth();
   }, [isLoggedIn]);
-  
 
+  // --- useEffect for debounced search suggestions API call ---
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(async () => {
+      // Only fetch suggestions if query length is greater than 2 characters
+      if (q.length > 2) {
+        try {
+          const suggestions = await fetchSearchSuggestions(q);
+          setSuggestionList(suggestions); // Store the suggestions
+          // Show popover if there are any suggestions
+          setShowSuggestionsPopover(suggestions.length > 0);
+        } catch (error) {
+          console.error("Lỗi khi lấy gợi ý tìm kiếm:", error);
+          setSuggestionList([]);
+          setShowSuggestionsPopover(false);
+        }
+      } else {
+        setSuggestionList([]); // Clear suggestions if query is too short or empty
+        setShowSuggestionsPopover(false); // Hide popover
+      }
+    }, 300); // Debounce for 300ms
+
+    // Cleanup function to clear the timeout when component unmounts or q changes
+    return () => clearTimeout(delayDebounceFn);
+  }, [q]); // Rerun effect when q changes
+
+
+  //  // --- Thêm useEffect để debounce và gọi API tìm kiếm ---
+  // useEffect(() => {
+  //   const delayDebounceFn = setTimeout(async () => {
+  //     if (q.length > 2) { // Chỉ tìm kiếm khi độ dài query > 2 ký tự
+  //       try {
+  //         const results = await searchProduct(q);
+  //         setSearchResults(results);
+  //         setShowSearchResults(true); // Hiển thị popover khi có kết quả
+  //       } catch (error) {
+  //         console.error("Lỗi khi tìm kiếm sản phẩm:", error);
+  //         setSearchResults([]);
+  //         setShowSearchResults(false);
+  //       }
+  //     } else {
+  //       setSearchResults([]);
+  //       setShowSearchResults(false); // Ẩn popover nếu query quá ngắn hoặc rỗng
+  //     }
+  //   }, 300); // Debounce 300ms
+
+  //   return () => clearTimeout(delayDebounceFn); // Clear timeout khi component unmount hoặc q thay đổi
+  // }, [q]); // Chạy lại useEffect khi q thay đổi
 
   return (
     <header className="bg-white shadow-md">
@@ -96,7 +161,70 @@ export default function Navbar() {
         <div className="flex lg:flex-1">
           <Link href="/" className="text-xl font-bold text-blue-600">E-Shop</Link>
         </div>
+    {/* --- Search Form (desktop) --- */}
+      <div className="hidden lg:flex flex-1 justify-center px-4 relative">
+        <form
+          onSubmit={onSearch}
+          className="flex w-full max-w-md" // Giữ max-w-md cho form để kiểm soát chiều rộng tổng thể
+        >
+          {/* Popover chỉ bao quanh input để định vị chính xác */}
+          <Popover open={showSuggestionsPopover} onOpenChange={setShowSuggestionsPopover} >
+            <PopoverTrigger asChild>
+              {/* Vẫn giữ flex-1 cho input để nó tự chiếm không gian còn lại */}
+              <input
+                type="text"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Tìm sản phẩm..."
+                // Đảm bảo input không có các thuộc tính gây lệch như margin/padding không mong muốn
+                className="flex-1 border rounded-l-md px-3 py-2 focus:outline-none"
+              />
+            </PopoverTrigger>
 
+            {/* PopoverContent hiển thị gợi ý tìm kiếm */}
+            {suggestionList.length > 0 && (
+              <PopoverContent
+                // THAY ĐỔI LỚN Ở ĐÂY: Thêm 'sideOffset={0}' và loại bỏ 'left-0' trong className
+                // 'align="start"' trên Popover cũng giúp căn chỉnh từ đầu
+                sideOffset={0} // Đảm bảo không có khoảng cách offset theo chiều dọc mặc định
+                align="start" // Căn chỉnh popover content với điểm bắt đầu của trigger
+                className="absolute z-10 p-0 bg-white shadow-lg rounded-md border
+                           data-[state=open]:animate-in data-[state=closed]:animate-out
+                           data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0
+                           data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95
+                           data-[side=bottom]:slide-in-from-top-2
+                           w-[var(--radix-popover-trigger-width)]" // Giữ chiều rộng bằng trigger
+              >
+                <ul>
+                  {suggestionList.map((suggestion, index) => (
+                    <li key={index} className="border-b last:border-b-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setQ(suggestion);
+                          setSuggestionList([]);
+                          setShowSuggestionsPopover(false); // Ẩn popover sau khi chọn gợi ý
+                          router.push(`/search?q=${encodeURIComponent(suggestion)}`);
+                        }}
+                        className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-gray-800"
+                      >
+                        {suggestion}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </PopoverContent>
+            )}
+          </Popover>
+          <button
+            type="submit"
+            className="bg-blue-600 text-white rounded-r-md px-4 py-2 hover:bg-blue-700"
+          >
+            Tìm
+          </button>
+        </form>
+      </div>
+      {/* --- end Search Form --- */}
         {/* Hamburger (mobile) */}
         <div className="flex lg:hidden">
           <button onClick={() => setMobileMenuOpen(true)} className="text-gray-700 hover:text-gray-900">
@@ -187,19 +315,19 @@ export default function Navbar() {
 
               <DropdownMenuContent className="w-40">
                 <DropdownMenuItem asChild>
-                  <Link href="/profile" onClick={() => {}}>
-                    Profile
+                  <Link href="/orders" onClick={() => {}}>
+                    Đơn mua
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/settings" onClick={() => {}}>
-                    Settings
+                  <Link href="/wishlists" onClick={() => {}}>
+                    Yêu thích
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={async () => {
                     await handleLogout();
                   }}>
-                    Logout
+                    Đăng xuất
                   </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

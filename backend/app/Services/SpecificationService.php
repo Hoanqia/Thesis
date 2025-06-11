@@ -5,12 +5,53 @@ namespace App\Services;
 use App\Models\Specification;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
-
+use App\Models\VariantSpecValue;
 class SpecificationService
 {
     /**
-     * Tạo mới một specification
+     * Lấy danh sách gợi ý giá trị text cho một specification
+     *
+     * @param  int     $spec_id
+     * @param  string  $query
+     * @return string[]
+     *
+     * @throws ValidationException
      */
+    public function fetchSpecValuesSuggestions($spec_id, $query)
+    {
+        // 1. Validate đầu vào
+        $validator = Validator::make([
+            'spec_id' => $spec_id,
+            'query'   => $query,
+        ], [
+            'spec_id' => 'required|integer|exists:specifications,id',
+            'query'   => 'nullable|string|max:255',
+        ]);
+
+        if ($validator->fails()) {
+            throw new ValidationException($validator);
+        }
+
+        // 2. Kiểm tra specification có phải là text không
+        $spec = Specification::findOrFail($spec_id);
+        if ($spec->data_type !== 'text') {
+            // Nếu không phải text, trả về mảng rỗng
+            return [];
+        }
+
+        // 3. Query distinct value_text từ bảng variant_spec_values
+        $suggestions = VariantSpecValue::query()
+            ->where('spec_id', $spec_id)
+            ->whereNotNull('value_text')
+            ->where('value_text', 'like', '%' . $query . '%')
+            ->distinct()
+            ->orderBy('value_text')
+            ->limit(10)
+            ->pluck('value_text')
+            ->toArray();
+
+        return $suggestions;
+    }
     public function create(array $data): Specification
     {
         $validated = Validator::make($data, [

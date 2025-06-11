@@ -16,6 +16,82 @@ class ProductController extends Controller
         $this->productService = $productService;
     }
 
+
+
+    /**
+     * Tìm kiếm sản phẩm.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function search(Request $request)
+    {
+        try {
+            $request->validate([
+                'query' => 'required|string|max:255',
+                'limit' => 'nullable|integer|min:1|max:50',
+            ]);
+
+            $query = $request->input('query');
+            $limit = $request->input('limit', 10); // Mặc định 10 kết quả
+
+            $products = $this->productService->searchProducts($query, $limit);
+
+            return response()->json([
+                'message' => 'Tìm thấy sản phẩm',
+                'status' => 'success',
+                'data' => $products,
+            ]);
+
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => 'Dữ liệu đầu vào không hợp lệ.',
+                'status' => 'error',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+          return ApiExceptionHandler::handleException($e);
+        }
+    }
+
+    /**
+     * Lấy danh sách gợi ý tìm kiếm.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function suggestions(Request $request)
+    {
+        try {
+            $request->validate([
+                'query' => 'required|string|max:255',
+                'limit' => 'nullable|integer|min:1|max:10',
+            ]);
+
+            $query = $request->input('query');
+            $limit = $request->input('limit', 5); // Mặc định 5 gợi ý
+
+            $suggestions = $this->productService->getSearchSuggestions($query, $limit);
+
+            return response()->json([
+                'message' => 'Gợi ý sản phẩm',
+                'status' => 'success',
+                'data' => $suggestions,
+            ]);
+
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => 'Dữ liệu không hợp lệ',
+                'status' => 'error',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+           return ApiExceptionHandler::handleException($e);
+        }
+    }
+
+
+
     public function store(Request $request)
     {
         try {

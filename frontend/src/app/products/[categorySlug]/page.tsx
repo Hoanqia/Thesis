@@ -124,11 +124,16 @@ export default function ProductListPage({ params }: Props) {
       </div>
 
       {/* Product grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {sortedProducts.map((product) => (
           <ProductCard key={product.id} product={product} />
         ))}
-      </div>
+      </div> */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+  {sortedProducts.map((product) => (
+    <ProductCard key={product.id} product={product} categorySlug={categorySlug} />
+  ))}
+</div>
     </div>
   );
 }

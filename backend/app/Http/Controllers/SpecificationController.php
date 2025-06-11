@@ -17,6 +17,29 @@ class SpecificationController extends Controller
         $this->specificationService = $specificationService;
     }
 
+
+    public function fetchValues(Request $request)
+    {
+        try {
+            $specId = $request->query('spec_id');
+            $query  = $request->query('query', '');
+
+            $suggestions = $this->specificationService->fetchSpecValuesSuggestions($specId, $query);
+
+            return response()->json([
+                'message' => 'Lấy dữ liệu thành công',
+                'status'     => 'success',
+                'data' => $suggestions,
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'errors'  => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            return ApiExceptionHandler::handleException($e);
+        }
+    }
     public function store(Request $request)
     {
         try {

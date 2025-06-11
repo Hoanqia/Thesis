@@ -34,4 +34,8 @@ class Product extends Model
     public function variants(){
         return $this->hasMany(Variant::class);
     }
+
+    public function reviews(){
+        return $this->hasMany(Review::class);
+    }
 }

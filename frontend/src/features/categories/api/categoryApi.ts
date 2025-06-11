@@ -25,6 +25,7 @@ export interface CategoryUpdateDto {
   id_parent?: number | null;
 }
 
+
 /**
  * Lấy danh sách categories
  */
@@ -34,7 +35,7 @@ export function fetchCategories(): Promise<Category[]> {
 }
 
 export function fetchCategoryBySlug(categorySlug: string): Promise<Category>{
-  return axiosRequest<{data: Category}>(`/categories/${categorySlug}`,"GET").then(res => res.data)
+  return axiosRequest<{data: Category}>(`/categories/${categorySlug}/detail`,"GET").then(res => res.data)
 }
 /**
  * Tạo mới category

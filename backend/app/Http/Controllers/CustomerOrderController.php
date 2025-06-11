@@ -6,6 +6,7 @@ use App\Services\CustomerOrderService;
 use Illuminate\Http\Request;
 use App\Exceptions\ApiExceptionHandler;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;      // ← Thêm dòng này
 
 class CustomerOrderController extends Controller
 {
@@ -104,9 +105,8 @@ class CustomerOrderController extends Controller
     public function cancelOrder($orderId)
     {
         try {
-            // Hủy đơn hàng
             $order = $this->customerOrderService->cancelOrder($orderId);
-
+            
             return response()->json([
                 'message' => 'Đơn hàng đã được hủy thành công',
                 'status' => 'success',

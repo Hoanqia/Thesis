@@ -38,6 +38,24 @@ class CategoryController extends Controller
         }
     }
     
+    public function getCatByProductId($productId){
+        try {
+            $cat = Category::find($productId);
+            if(!$cat){
+                return response()->json([
+                    'message' => 'Danh mục không tồn tại',
+                    'status' => 'error',
+                ],404);
+            }
+            return response()->json([
+                'message' => 'Lấy thông tin thành công',
+                'status' => 'success',
+                'data' => $cat,
+            ],200);
+        }catch(\Exception $e){
+            return ApiExceptionHandler::handleException($e);
+        }
+    }
     public function getParentCats(){
         try {
         $catParents = Category::where('id_parent',null)->get();

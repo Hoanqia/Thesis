@@ -1,8 +1,12 @@
-'use client';
 
+
+'use client';
+import { toast } from "react-hot-toast"; // ← import toast
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-
+import { Heart, ShoppingCart } from "lucide-react"; // ← import 2 icon
+import { cartApi } from "@/features/cart/api/cartApi";
+import { wishlistApi } from "@/features/wishlists/api/wishlistApi";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/Button";
 import Image from "next/image";
@@ -20,16 +24,65 @@ import { axiosRequest } from "@/lib/axiosRequest";
 
 interface ProductCardProps {
   product: Product;
+  categorySlug?: string,
 }
 
-export function ProductCard({ product }: ProductCardProps) {
+export function ProductCard({ product ,categorySlug}: ProductCardProps) {
     const router = useRouter();
-      const { categorySlug } = useParams<{ categorySlug: string }>();
+      // const { categorySlug } = useParams<{ categorySlug: string }>();
     const [category, setCategory] = useState<Category | null>(null);
 
   const [variants, setVariants] = useState<Variant[]>([]);
   const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null);
 
+
+
+  const handleAddToCart = async () => {
+  if (!selectedVariant) {
+    console.error("Chưa chọn biến thể để thêm vào giỏ hàng.");
+    return;
+  }
+
+  try {
+    const res = await cartApi.addToCart(selectedVariant.id, 1); // quantity = 1
+    if (res.status === 'success') {
+      console.log("Đã thêm vào giỏ hàng:", res.message);
+              toast.success(res.message || "Đã thêm vào giỏ hàng!");
+    } else {
+      console.error("Thêm vào giỏ hàng thất bại:", res.message);
+            toast.error(res.message || "Thêm vào giỏ hàng thất bại.");
+
+    }
+  } catch (error) {
+    console.error("Lỗi khi gọi API addToCart:", error);
+          toast.error("Có lỗi xảy ra khi thêm vào giỏ hàng.");
+
+  }
+};
+
+  const handleWishlist = async () => {
+  if (!selectedVariant) {
+    console.error("Chưa chọn biến thể để thêm vào wishlist.");
+          toast.error("Vui lòng chọn biến thể trước khi thêm vào wishlist.");
+
+    return;
+  }
+
+  try {
+    const res = await wishlistApi.createWishlist(selectedVariant.id);
+    console.log("Đã thêm vào wishlist:", res);
+          toast.success("Đã thêm vào wishlist!");
+
+    // Optional: Thông báo UI
+  } catch (error) {
+    console.error("Lỗi khi thêm vào wishlist:", error);
+          toast.error("Có lỗi xảy ra khi thêm vào wishlist.");
+
+  }
+};
+
+
+  
   // Hàm lấy URL ảnh đầy đủ (nếu path bắt đầu bằng "http" thì giữ nguyên, ngược lại thêm base URL)
   function getFullImageUrl(path?: string) {
     if (!path) return "/placeholder.jpg";
@@ -158,9 +211,9 @@ export function ProductCard({ product }: ProductCardProps) {
 
   return (
     <Card className="w-full max-w-sm shadow-lg rounded-2xl p-4">
-      <CardContent className="flex flex-col items-center">
+      <CardContent className="relative flex flex-col items-center">
         {/* Ảnh của biến thể đang chọn */}
-        <div onClick={onImageClick} className="cursor-pointer">
+        {/* <div onClick={onImageClick} className="cursor-pointer">
           <Image
             src={getFullImageUrl(selectedVariant?.image) || "/placeholder.jpg"}
             alt={product.name}
@@ -169,8 +222,19 @@ export function ProductCard({ product }: ProductCardProps) {
             className="rounded-xl object-contain"
             priority
           />
+        </div> */}
+          <div
+          onClick={onImageClick}
+          className="cursor-pointer w-[200px] h-[200px] relative"
+        >
+          <Image
+            src={getFullImageUrl(selectedVariant?.image) || "/placeholder.jpg"}
+            alt={product.name}
+            fill                   // cho image bám đầy container
+            className="rounded-xl object-contain"
+            priority
+          />
         </div>
-
         {/* Tên sản phẩm */}
         <h2 className="text-lg font-semibold mt-2">{product.name}</h2>
 
@@ -198,6 +262,22 @@ export function ProductCard({ product }: ProductCardProps) {
               {buildVariantLabel(variant, category)}
             </Button>
           ))}
+        </div>
+
+         {/* —— Phần icon chồng lên góc dưới bên phải —— */}
+        <div className="absolute top-2 right-2 flex flex-col items-center gap-1">
+          <button
+            onClick={handleWishlist}
+            className="p-2 bg-white rounded-full shadow hover:bg-gray-100"
+          >
+            <Heart className="w-5 h-5 text-gray-600" />
+          </button>
+          <button
+            onClick={handleAddToCart}
+            className="p-2 bg-white rounded-full shadow hover:bg-gray-100"
+          >
+            <ShoppingCart className="w-5 h-5 text-gray-600" />
+          </button>
         </div>
       </CardContent>
     </Card>

@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useRouter, useParams } from 'next/navigation';
 import { useCartStore } from '@/store/cartStore';
+import { reviewApi , Review} from '@/features/reviews/api/reviewApi';
+ import ReviewSection from '@/features/products/components/ReviewSection';
 
 import {
   Product,
@@ -31,6 +33,9 @@ export default function Page() {
   const [mainImage, setMainImage] = useState<string | null>(null);
   const [isZoomed, setIsZoomed] = useState(false);
 
+  const [reviews, setReviews] = useState<Review[]>([]);
+
+
    const handleAdd = async () => {
     if (!selectedVariant) {
       console.warn('Chưa chọn biến thể nào');
@@ -57,6 +62,9 @@ export default function Page() {
           setSelectedVariant(dataVariants[0]);
           setMainImage(dataVariants[0].image ?? null);
         }
+
+         const data = await reviewApi.getReviews(fetchedProduct.id);
+        setReviews(data);
       } catch (err) {
         console.error('Không thể load sản phẩm hoặc biến thể:', err);
       }
@@ -316,7 +324,11 @@ export default function Page() {
             Add to Cart
           </button>
         </div>
+
+      
       </div>
+        {/* === Phần đánh giá & bình luận === */}
+        <ReviewSection reviews={reviews} />
     </div>
   );
 }

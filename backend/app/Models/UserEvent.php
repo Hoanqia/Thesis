@@ -11,6 +11,7 @@ class UserEvent extends Model
 
     protected $table = 'user_events';
     protected $primaryKey = 'event_id';
+    protected $keyType = 'int';
     public $timestamps = false;
 
     protected $fillable = [
@@ -20,7 +21,7 @@ class UserEvent extends Model
         'value',
         'created_at',
     ];
-
+    
     // Quan hệ
     public function user()
     {

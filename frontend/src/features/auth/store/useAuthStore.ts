@@ -5,12 +5,14 @@ import { handleLogout } from '../api/logout';
 type AuthStore = {
   isLoggedIn: boolean;
   checkAuth: () => Promise<void>;
+  isAuthChecked: boolean;
   logout: () => Promise<void>;
   setIsLoggedIn: (value: boolean) => void;
 };
 
 export const useAuthStore = create<AuthStore>((set) => ({
   isLoggedIn: false,
+  isAuthChecked: false,
 
   setIsLoggedIn: (value: boolean) => set({ isLoggedIn: value }),
 
@@ -25,6 +27,9 @@ export const useAuthStore = create<AuthStore>((set) => ({
     } catch (error) {
       console.error('Auth check failed', error);
       set({ isLoggedIn: false });
+    }
+    finally {
+            set({ isAuthChecked: true }); // ✅ Đánh dấu đã kiểm tra xong
     }
   },
 

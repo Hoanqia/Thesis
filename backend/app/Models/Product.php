@@ -18,7 +18,9 @@ class Product extends Model
         'is_featured',
         'status',
     ];
-
+    public function similar_items(){
+        return $this->hasMany(ItemSimilarity::class);
+    }
    
     public function brand()
     {

@@ -199,7 +199,7 @@ return new class extends Migration
             $table->id('event_id');
             $table->unsignedBigInteger('user_id');
             $table->unsignedBigInteger('product_id');
-            $table->enum('event_type', ['view', 'add_to_cart', 'purchase', 'rate']);
+            $table->enum('event_type', ['view', 'add_to_cart', 'purchase', 'rate','wishlist']);
             $table->integer('value')->nullable(); // có thể null nếu không dùng
 
             $table->timestamp('created_at')->useCurrent();
@@ -242,7 +242,9 @@ return new class extends Migration
 
             $table->unique(['user_id', 'product_id']); // tránh trùng gợi ý
             $table->index(['user_id']);
+            $table->timestamp('updated_at')->useCurrent();
             $table->timestamp('created_at')->useCurrent();
+            
         });
        
     }

@@ -19,7 +19,7 @@ class Order extends Model
         'ward', 
         'shipping_id',
         'shipping_fee', 
-        'total_price', 
+        'total_price',  
         'product_voucher_id',
         'shipping_voucher_id',
         'discount_on_products',

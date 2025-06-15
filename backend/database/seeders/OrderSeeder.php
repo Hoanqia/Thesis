@@ -2,20 +2,21 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use App\Models\Order;
-use App\Models\OrderItem;
 
 class OrderSeeder extends Seeder
 {
     /**
      * Run the database seeds.
+     *
+     * @return void
      */
-    public function run(): void
+    public function run()
     {
-        Order::factory(10)->create()->each(function ($order) {
-            // Tạo 3 OrderItems cho mỗi Order
-            OrderItem::factory(3)->create(['order_id' => $order->id]);
-        });    }
+        // Tạo 10 đơn hàng mẫu cùng quy trình add-to-cart, purchase, review
+        Order::factory()
+             ->count(200)
+             ->create();
+    }
 }

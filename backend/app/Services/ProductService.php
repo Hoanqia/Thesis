@@ -368,7 +368,11 @@ class ProductService
     }
     public function getBySlug(string $slug)
     {
-        return Product::with(['brand', 'category', 'variants'])->where('slug', $slug)->first();
+        return Product::with(['brand', 'category', 'variants'])
+        ->withCount('reviews')
+        ->withAvg('reviews','rate')
+        ->where('slug', $slug)
+        ->first();
     }
 
    public function look_for(string $keyword){

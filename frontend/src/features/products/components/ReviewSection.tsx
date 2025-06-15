@@ -7,15 +7,19 @@ import ReviewList from './ReviewList';
 import { Review } from '@/features/reviews/api/reviewApi';
 
 interface ReviewSectionProps {
+  review_counts: number;
+  review_avg_rate: number;
   reviews: Review[];
 }
 
-const ReviewSection: React.FC<ReviewSectionProps> = ({ reviews }) => {
-  const totalComments = reviews.length;
-  const averageRating =
-    totalComments > 0
-      ? reviews.reduce((sum, r) => sum + r.rate, 0) / totalComments
-      : 0;
+const ReviewSection: React.FC<ReviewSectionProps> = ({
+  reviews,
+  review_counts,
+  review_avg_rate,
+}) => {
+  const totalComments = review_counts;
+  const averageRating = review_avg_rate;
+
 
   // Tính distribution: { '5': x, '4': y, ... }
   const ratingDistribution: { [key: string]: number } = {};

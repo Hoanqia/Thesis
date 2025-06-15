@@ -11,6 +11,8 @@ export interface Product {
   brand_id: number;
   is_featured: boolean;
   status: boolean;
+  reviews_count?: number;
+  reviews_avg_rate?: string;
 }
 
 export async function fetchSearchSuggestions(query: string): Promise<string[]> {

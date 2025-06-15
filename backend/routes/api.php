@@ -18,7 +18,7 @@ use App\Http\Controllers\VnPayController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\WishlistController;
 use App\Http\Controllers\UserEventController;
-
+use App\Http\Controllers\RecommendationController;
 // use app\Http\Middleware\RoleMiddleware;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
@@ -120,6 +120,7 @@ Route::middleware(['jwt.auth'])->group(function () {
     });
     Route::middleware('role:customer')->group(function (){
         Route::prefix('customer')->group(function (){
+            Route::get('/recommendations', [RecommendationController::class, 'index']);
 
 
             Route::post('/wishlists/add-all-to-cart',[WishlistController::class,'addAllToCart']);
@@ -165,6 +166,8 @@ Route::middleware(['jwt.auth'])->group(function () {
     
     
 }); // ngoặc xác thực api
+Route::get('/product/{productSlug}/similar',[RecommendationController::class,'getSimilarItems']);
+
 Route::post('/user-events',[UserEventController::class,'store']);
 Route::get('/search',[ProductController::class,'search']);
 Route::get('/suggestions',[ProductController::class,'suggestions']);

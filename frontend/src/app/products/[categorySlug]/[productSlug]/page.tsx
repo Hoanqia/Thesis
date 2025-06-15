@@ -6,6 +6,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useCartStore } from '@/store/cartStore';
 import { reviewApi , Review} from '@/features/reviews/api/reviewApi';
  import ReviewSection from '@/features/products/components/ReviewSection';
+import RecommendationCarousel from '@/features/recommendations/components/RecommendationCarousel';
 
 import {
   Product,
@@ -80,6 +81,71 @@ export default function Page() {
       </div>
     );
   }
+  const renderStars = (averageRate: number | undefined) => {
+  const stars = [];
+  const rate = averageRate || 0;
+  const fullStars = Math.floor(rate);
+  const hasHalfStar = rate - fullStars >= 0.25 && rate - fullStars <= 0.75;
+  const totalStars = hasHalfStar ? fullStars + 1 : fullStars;
+
+  for (let i = 0; i < 5; i++) {
+    if (i < fullStars) {
+      // ⭐ Full star
+      stars.push(
+        <svg
+          key={`star-full-${i}`}
+          xmlns="http://www.w3.org/2000/svg"
+          className="w-5 h-5 inline text-yellow-400"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.957a1 1 0 00.95.69h4.162c.969 0 1.371 1.24.588 1.81l-3.368 2.447a1 1 0 00-.364 1.118l1.287 3.957c.3.921-.755 1.688-1.54 1.118l-3.368-2.447a1 1 0 00-1.176 0l-3.368 2.447c-.784.57-1.838-.197-1.539-1.118l1.286-3.957a1 1 0 00-.364-1.118L2.006 
+            9.384c-.783-.57-.38-1.81.588-1.81h4.162a1 1 0 00.95-.69l1.286-3.957z" />
+        </svg>
+      );
+    } else if (i === fullStars && hasHalfStar) {
+      // 🌓 Half star
+      stars.push(
+        <svg
+          key={`star-half-${i}`}
+          xmlns="http://www.w3.org/2000/svg"
+          className="w-5 h-5 inline text-yellow-400"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <defs>
+            <linearGradient id={`halfGrad-${i}`}>
+              <stop offset="50%" stopColor="currentColor" />
+              <stop offset="50%" stopColor="transparent" />
+            </linearGradient>
+          </defs>
+          <path
+            fill={`url(#halfGrad-${i})`}
+            d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.957a1 1 0 00.95.69h4.162c.969 0 1.371 1.24.588 1.81l-3.368 2.447a1 1 0 00-.364 1.118l1.287 3.957c.3.921-.755 1.688-1.54 1.118l-3.368-2.447a1 1 0 00-1.176 0l-3.368 2.447c-.784.57-1.838-.197-1.539-1.118l1.286-3.957a1 1 0 00-.364-1.118L2.006 
+              9.384c-.783-.57-.38-1.81.588-1.81h4.162a1 1 0 00.95-.69l1.286-3.957z"
+          />
+        </svg>
+      );
+    } else {
+      // ⚪ Empty star
+      stars.push(
+        <svg
+          key={`star-empty-${i}`}
+          xmlns="http://www.w3.org/2000/svg"
+          className="w-5 h-5 inline text-gray-300"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.957a1 1 0 00.95.69h4.162c.969 0 1.371 1.24.588 1.81l-3.368 2.447a1 1 0 00-.364 1.118l1.287 3.957c.3.921-.755 1.688-1.54 1.118l-3.368-2.447a1 1 0 00-1.176 0l-3.368 2.447c-.784.57-1.838-.197-1.539-1.118l1.286-3.957a1 1 0 00-.364-1.118L2.006 
+            9.384c-.783-.57-.38-1.81.588-1.81h4.162a1 1 0 00.95-.69l1.286-3.957z" />
+        </svg>
+      );
+    }
+  }
+
+  return stars;
+};
+
 
   // Tạo mảng thumbnails từ các variant có image
  const thumbnails: string[] = variants
@@ -138,24 +204,7 @@ export default function Page() {
     return `${color} – ${ram} – ${storage}`;
   };
 
-  const renderEmptyStars = () => {
-    const stars = [];
-    for (let i = 0; i < 5; i++) {
-      stars.push(
-        <svg
-          key={`star-${i}`}
-          xmlns="http://www.w3.org/2000/svg"
-          className="w-5 h-5 text-gray-300 inline"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-        >
-          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.957a1 1 0 00.95.69h4.162c.969 0 1.371 1.24.588 1.81l-3.368 2.447a1 1 0 00-.364 1.118l1.287 3.957c.3.921-.755 1.688-1.54 1.118l-3.368-2.447a1 1 0 00-1.176 0l-3.368 2.447c-.784.57-1.838-.197-1.539-1.118l1.286-3.957a1 1 0 00-.364-1.118L2.006 
-          9.384c-.783-.57-.38-1.81.588-1.81h4.162a1 1 0 00.95-.69l1.286-3.957z" />
-        </svg>
-      );
-    }
-    return stars;
-  };
+
   function getFullImageUrl(path?: string) {
     if (!path) return "/placeholder.jpg";
     if (path.startsWith("http")) return path;
@@ -247,9 +296,11 @@ export default function Page() {
           <div>
             <h1 className="text-3xl font-semibold">{product.name}</h1>
             <div className="mt-2">
-              {renderEmptyStars()}
-              <span className="ml-2 text-gray-500">(0 reviews)</span>
-            </div>
+                {renderStars(parseFloat(product.reviews_avg_rate || '0'))}
+                <span className="ml-2 text-gray-500">
+                  ({product.reviews_count ?? 0} reviews)
+                </span>
+              </div>
             <div className="mt-4 text-gray-700 whitespace-pre-line">
               {product.description}
             </div>
@@ -325,10 +376,12 @@ export default function Page() {
           </button>
         </div>
 
-      
+       <div className="lg:col-span-2 mt-12">
+    <RecommendationCarousel categorySlug={categorySlug} productSlug={productSlug}/>
+  </div>
       </div>
         {/* === Phần đánh giá & bình luận === */}
-        <ReviewSection reviews={reviews} />
+        <ReviewSection reviews={reviews} review_counts={product.reviews_count ?? 0} review_avg_rate={parseFloat(product.reviews_avg_rate ?? '0')} />
     </div>
   );
 }

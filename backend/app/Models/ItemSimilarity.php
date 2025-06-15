@@ -16,4 +16,5 @@ class ItemSimilarity extends Model
     protected $keyType = 'int';
     protected $primaryKey = 'sim_id';
     
+    
 }

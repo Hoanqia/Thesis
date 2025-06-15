@@ -16,6 +16,9 @@ class UserAddressSeeder extends Seeder
     {
         $users = User::all();
         foreach ($users as $user) {
+            if($user->id == 7 && $user->id == 10){
+                continue;
+            }
             UserAddress::factory()->count(2)->create([
                 'user_id' => $user->id,
             ]);

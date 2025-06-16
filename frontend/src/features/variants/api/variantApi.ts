@@ -10,7 +10,7 @@ export interface Variant {
   image?: string;
   status?: number;
 
-  variant_spec_values: SpecValue[];
+  variant_spec_values?: SpecValue[];
 
 }
 
@@ -51,6 +51,10 @@ export interface SpecOption {
 const baseUrl = "/admin";
 
 export const variantApi = {
+
+  fetchAllVariants: async (): Promise<Variant[]> => {
+    return axiosRequest<{data: Variant[]}>(`${baseUrl}/variants`,"GET").then(res => res.data);
+  },
   fetchByProduct: async (productId: number): Promise<Variant[]> => {
     return axiosRequest<{ data: Variant[] }>(`${productId}/variants`, "GET")
       .then(res => res.data);

@@ -63,7 +63,18 @@ class VariantController extends Controller
         }
     }
 
-
+    public function getAll(){
+        try {
+            $variants = $this->variantService->getAllVariants();
+            return response()->json([
+                'message' => 'Lấy dữ liệu thành công',
+                'status' => 'success',
+                'data' => $variants,
+            ],200);
+        }catch(\Exception $e){
+            return ApiExceptionHandler::handleException($e);
+        }
+    }
     public function getByProduct($productId)
     {
         try {

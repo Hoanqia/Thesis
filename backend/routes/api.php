@@ -19,6 +19,8 @@ use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\WishlistController;
 use App\Http\Controllers\UserEventController;
 use App\Http\Controllers\RecommendationController;
+use App\Http\Controllers\GrnController;
+use App\Http\Controllers\SupplierController;
 // use app\Http\Middleware\RoleMiddleware;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
@@ -50,6 +52,21 @@ Route::prefix('auth')->group(function () {
 Route::middleware(['jwt.auth'])->group(function () {
     Route::middleware('role:admin')->group(function (){
         Route::prefix('admin')->group(function () {
+
+            Route::delete('/suppliers/{id}',[SupplierController::class,'destroy']);
+            Route::patch('/suppliers/{id}',[SupplierController::class,'update']);
+            Route::get('/suppliers/{id}',[SupplierController::class,'show']);
+            Route::post('/suppliers',[SupplierController::class,'store']);
+            Route::get('/suppliers',[SupplierController::class,'index']);
+
+            Route::patch('/grns/{id}/cancel',[GrnController::class,'cancel']);
+            Route::patch('/grns/{id}/confirm',[GrnController::class,'confirm']);
+            Route::delete('/grns/{id}',[GrnController::class,'destroy']);
+            Route::get('/grns/{id}',[GrnController::class,'show']);
+            Route::post('/grns',[GrnController::class,'store']);
+            Route::get('/grns',[GrnController::class,'index']);
+
+
             Route::get('/products/specifications/spec-value-suggestions',[SpecificationController::class,'fetchValues']);
 
             Route::patch('/reviews/{id}',[ReviewController::class,'adminReply']);
@@ -86,11 +103,11 @@ Route::middleware(['jwt.auth'])->group(function () {
             Route::post('/spec-options',[SpecOptionController::class,'store']);
 
             Route::get('/variants/{variantId}/spec-values',[VariantController::class,'getSpecValuesByVariantId']);
-
             Route::delete('/variants/{variantId}',[VariantController::class,'destroy']);
             Route::patch('/variants/{variantId}/update',[VariantController::class,'update']);
             Route::post('/variants',[VariantController::class,'store']);
-            
+            Route::get('/variants',[VariantController::class,'getAll']);
+
             Route::get('/categories-child/{id}',[CategoryController::class,'getChildCats']);
             Route::get('/categories/{categoryId}/specifications',[SpecificationController::class,'index']);
             Route::patch('/categories/{slug}',[CategoryController::class,'edit']);

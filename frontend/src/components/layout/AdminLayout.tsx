@@ -88,7 +88,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     { name: "Order", icon: <Sliders size={20} />, href: "/admin/orders" },
     { name: "Import", icon: <Sliders size={20} />, href: "/admin/specifications" },
     { name: "Voucher", icon: <ListChecks size={20} />, href: "/admin/vouchers" },
-    // { name: "Spec Value", icon: <FileText size={20} />, href: "/admin/spec_values" },
+    { name: "GRN", icon: <FileText size={20} />, href: "/admin/grns" },
     { name: "Review", icon: <FileText size={20} />, href: "/admin/reviews" },
     // { name: "User Address", icon: <MapPin size={20} />, href: "/admin/user_addresses" },
     // { name: "Setting", icon: <Settings size={20} />, href: "/admin/settings" },

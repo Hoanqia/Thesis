@@ -409,7 +409,13 @@ public function updateVariant(int $variantId, array $data)
     return $variants;
     }
 
-
+    public function getAllVariants(){
+        $variants = Variant::all();
+        foreach ($variants as $variant){
+            $variant->image = $variant->image ? asset('storage/' . $variant->image) : null;
+        }
+          return $variants;
+    }
     public function getVariantDetail($variantId){
         $variant = Variant::with(['variantSpecValues.specification', 'variantSpecValues.spec_options'])
                         ->findOrFail($variantId);

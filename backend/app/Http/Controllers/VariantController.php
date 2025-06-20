@@ -28,12 +28,12 @@ class VariantController extends Controller
         try {
             $validated = $request->validate([
                 'product_id' => 'required|exists:products,id',
-                'sku'        => 'nullable',
-                'price'      => 'required|numeric|min:0',
-                'discount'   => 'nullable|numeric|min:0',
-                'stock'      => 'nullable|integer|min:0',
+                // 'sku'        => 'nullable',
+                // 'price'      => 'nullable|numeric|min:0',
+                // 'discount'   => 'nullable|numeric|min:0',
+                // 'stock'      => 'nullable|integer|min:0',
                 'parent_variant_id' => 'nullable|exists:product_variants,id',
-
+                'profit_percent' => 'required|numeric|min:0',
                 'spec_values' => 'nullable|array',
                 'spec_values.*.spec_id' => 'required|exists:specifications,id',
                 'spec_values.*.option_id' => 'nullable|exists:spec_options,id',
@@ -110,10 +110,11 @@ class VariantController extends Controller
         \Log::info('Spec values:', ['data' => $request->input('spec_values') ?? []]);
         try {
             $validated = $request->validate([
-                'price'      => 'nullable|numeric|min:0',
-                'discount'   => 'nullable|numeric|min:0',
-                'stock'      => 'nullable|integer|min:0',
-                'spec_values' => 'array',
+                // 'price'      => 'nullable|numeric|min:0',
+                // 'discount'   => 'nullable|numeric|min:0',
+                // 'stock'      => 'nullable|integer|min:0',
+                    'status' => 'nullable',
+                    'spec_values' => 'array',
                     'spec_values.*.spec_id' => 'required|exists:specifications,id',
                     'spec_values.*.value_text' => 'nullable|string',
                     'spec_values.*.value_int' => 'nullable|integer',

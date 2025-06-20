@@ -17,6 +17,9 @@ class Variant extends Model
         'created_at',
         'updated_at',
         'image',
+        'profit_percent',
+        'average_cost',
+        'status',
     ];
     protected $table = 'product_variants';
 

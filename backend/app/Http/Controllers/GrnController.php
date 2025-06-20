@@ -63,22 +63,19 @@ class GrnController extends Controller
     {
         try {
             $data = $request->validate([
-            // 'user_id' => 'required|exists:users,id',
-            'supplier_id' => 'required|exists:suppliers,id',
-            'type' => 'required|in:purchase',
-            'expected_delivery_date' => 'nullable|date',
+            'purchase_order_id' => 'required|exists:purchase_orders,id',
+            'type' => 'nullable',
             'notes' => 'nullable|string',
             'items' => 'required|array',
-            'items.*.variant_id' => 'required|exists:product_variants,id',
-            'items.*.ordered_quantity' => 'required|integer|min:1',
-            'items.*.unit_cost' => 'required|numeric|min:0',
+            'items.*.purchase_order_item_id' => 'required|exists:purchase_order_items,id', // Phải là PO item ID
+            'items.*.quantity' => 'required|integer|min:1',
         ]);
         $user = Auth::user();
         $data['user_id'] = $user->id;
-        $grn = $this->grnService->create(
-            collect($data)->except('items')->toArray(),
-            $data['items']
-        );
+
+        $grnData = collect($data)->except('items')->toArray();
+        $itemsData = $data['items'];
+        $grn = $this->grnService->create($grnData, $itemsData);
 
         return response()->json([
             'message' => 'Tạo phiếu nhập hàng thành công',
@@ -99,12 +96,12 @@ class GrnController extends Controller
              // Validate the incoming request data for items
             $request->validate([
                 'items' => 'required|array',
-                'items.*.id' => 'required|integer|exists:grn_items,id',
-                'items.*.received_quantity' => 'required|integer|min:0',
+                'items.*.id' => 'required|integer|exists:grn_items,id', // ID của GRN Item
+                'items.*.quantity' => 'required|integer|min:0', // Số lượng thực tế nhận được
             ]);
             $itemsData = $request->input('items');
 
-             $grn =$this->grnService->confirm($id, $itemsData);
+            $grn =$this->grnService->confirm($id, $itemsData);
             return response()->json([
                 'message' => 'Xác nhận phiếu nhập hàng thành công',
                 'status' => 'success',

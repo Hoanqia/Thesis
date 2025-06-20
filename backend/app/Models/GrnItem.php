@@ -10,21 +10,20 @@ class GrnItem extends Model
     use HasFactory;
 
     protected $fillable = [
-        'GRN_id',
-        'variant_id',
-        'ordered_quantity',
+        'grn_id',
+        'purchase_order_item_id',
+        'quantity',
         'unit_cost',
         'subtotal',
-        'received_quantity',
     ];
 
     public function grn()
     {
-        return $this->belongsTo(Grn::class,'GRN_id');
+        return $this->belongsTo(Grn::class,'grn_id');
     }
 
-    public function variant()
+    public function purchaseOrderItem()
     {
-        return $this->belongsTo(Variant::class, 'variant_id');
+        return $this->belongsTo(PurchaseOrderItem::class, 'purchase_order_item_id');
     }
 }

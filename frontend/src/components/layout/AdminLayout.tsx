@@ -86,12 +86,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     { name: "Brand", icon: <Tag size={20} />, href: "/admin/brands" },
     { name: "Product", icon: <Package size={20} />, href: "/admin/products" },
     { name: "Order", icon: <Sliders size={20} />, href: "/admin/orders" },
-    { name: "Import", icon: <Sliders size={20} />, href: "/admin/specifications" },
+    { name: "Price", icon: <Sliders size={20} />, href: "/admin/bulk-price-update" },
     { name: "Voucher", icon: <ListChecks size={20} />, href: "/admin/vouchers" },
     { name: "GRN", icon: <FileText size={20} />, href: "/admin/grns" },
     { name: "Review", icon: <FileText size={20} />, href: "/admin/reviews" },
-    // { name: "User Address", icon: <MapPin size={20} />, href: "/admin/user_addresses" },
-    // { name: "Setting", icon: <Settings size={20} />, href: "/admin/settings" },
+    { name: "Supplier", icon: <MapPin size={20} />, href: "/admin/suppliers" },
+    { name: "Purchase_Order", icon: <Settings size={20} />, href: "/admin/purchase_orders" },
   ];
 
   const unreadNotifications = 5;

@@ -11,9 +11,8 @@ class Grn extends Model
 
     protected $fillable = [
         'user_id',
-        'supplier_id',
+        'purchase_order_id',
         'type',
-        'expected_delivery_date',
         'total_amount',
         'status',
         'notes',
@@ -24,11 +23,9 @@ class Grn extends Model
         return $this->belongsTo(User::class,'user_id');
     }
 
-    public function supplier()
-    {
-        return $this->belongsTo(Supplier::class,'supplier_id');
+    public function purchaseOrder(){
+        return $this->belongsTo(PurchaseOrder::class,'purchase_order_id');
     }
-
     public function items()
     {
         return $this->hasMany(GrnItem::class);

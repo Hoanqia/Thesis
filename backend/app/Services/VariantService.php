@@ -14,9 +14,14 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Str;
 use App\Services\SpecValueService;
+use App\Services\PricingService;
 class VariantService
 {   
-    
+
+        protected $pricingService;
+    public function __construct(PricingService $pricingService){
+        $this->pricingService = $pricingService;
+    }
     public function auto_completed_spec_value_recommendation($productId){
         $product = Product::find($productId);
         
@@ -164,15 +169,17 @@ class VariantService
                 return $hasText || $hasInt || $hasDecimal || $hasOption;
             }));
         }
-
+       
         // 2) Tạo variant ban đầu (chưa có SKU)
         $variant = Variant::create([
             'product_id' => $data['product_id'],
             'sku'        => $temporarySku, // Tạm thời rỗng, lát nữa cập nhật
-            'price'      => $data['price'],
-            'discount'   => $data['discount'] ?? 0,
-            'stock'      => $data['stock'] ?? 0,
+            'price'      => 0,
+            'discount'   =>  0,
+            'stock'      =>  0,
             'image'      => $data['image'] ?? null,
+            'profit_percent' => $data['profit_percent'],
+            'average_cost' => 0,
         ]);
 
         // 3) Clone spec từ parent nếu có
@@ -261,15 +268,42 @@ public function updateVariant(int $variantId, array $data)
 
         // 1) Cập nhật thông tin chính
         $variant->update([
-            'price'    => $data['price'] ?? $variant->price,
-            'discount' => $data['discount'] ?? $variant->discount,
-            'stock'    => $data['stock'] ?? $variant->stock,
             'image'    => $data['image'] ?? $variant->image,
+            'profit_percent' => $data['profit_percent'] ?? $variant->profit_percent,
+            'status' => $data['status'] ?? $variant->status, 
         ]);
 
         if (!empty($data['image']) && $oldImage && Storage::disk('public')->exists($oldImage)) {
             Storage::disk('public')->delete($oldImage);
         }
+
+           $variant->refresh();
+
+            // --- LOGIC ĐỊNH GIÁ MỚI: LUÔN TÍNH TOÁN GIÁ BÁN TỪ PROFIT_PERCENT ---
+
+            // Tính toán giá cơ sở dựa trên average_cost và profit_percent MỚI NHẤT
+            // (sau khi refresh).
+            $basePriceFromCost = $this->pricingService->calculateSuggestedPrice(
+                $variant->average_cost, // Lấy average_cost từ variant đã tìm thấy
+                $variant->profit_percent // Lấy profit_percent ĐÃ ĐƯỢC CẬP NHẬT hoặc cũ từ variant
+            );
+
+            $finalPriceToSet = $basePriceFromCost; // Giá mặc định là giá gợi ý từ cost+profit
+
+            $finalPriceToSet = $this->pricingService->calculatePsychologicalPrice(
+                $basePriceFromCost,
+                'charm_vnd_990' // <--- Đã hardcode chiến lược giá tâm lý tại đây
+            );
+
+            // Đảm bảo finalPriceToSet có giá trị trước khi gọi setFixedPrices
+            // Nếu price là 0, vẫn cho phép set (ví dụ cho sản phẩm inactive)
+            if ($finalPriceToSet !== null) {
+                // Sử dụng setFixedPrices để cập nhật giá trong DB
+                $this->pricingService->setFixedPrices([$variant->id], $finalPriceToSet);
+            }
+            // --- KẾT THÚC LOGIC ĐỊNH GIÁ ---
+
+
 
         // 2) Nếu có thay đổi spec_values thì cập nhật và regenerate SKU
         if (!empty($data['spec_values'])) {
@@ -409,13 +443,19 @@ public function updateVariant(int $variantId, array $data)
     return $variants;
     }
 
-    public function getAllVariants(){
-        $variants = Variant::all();
-        foreach ($variants as $variant){
-            $variant->image = $variant->image ? asset('storage/' . $variant->image) : null;
-        }
-          return $variants;
-    }
+    public function getAllVariants()
+{
+    $variants = Variant::with('product.category')->get();
+
+    // foreach ($variants as $variant) {
+    //     $variant->image = $variant->image ? asset('storage/' . $variant->image) : null;
+
+    //     // $variant->category_name = optional($variant->product->category)->name;
+    // }
+
+    return $variants;
+}
+
     public function getVariantDetail($variantId){
         $variant = Variant::with(['variantSpecValues.specification', 'variantSpecValues.spec_options'])
                         ->findOrFail($variantId);

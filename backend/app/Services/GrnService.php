@@ -3,7 +3,7 @@
 // app/Services/GrnService.php
 
 namespace App\Services;
-
+use App\Models\Variant;
 use App\Models\Grn;
 use App\Models\GrnItem;
 use Illuminate\Database\Eloquent\Collection;
@@ -11,6 +11,10 @@ use Illuminate\Support\Facades\DB;
 use App\Services\InventoryTransactionService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use App\Models\PurchaseOrder; 
+use App\Models\PurchaseOrderItem; // Cần import PurchaseOrderItem
+use Exception;
+
 
 class GrnService
 {
@@ -31,17 +35,68 @@ class GrnService
     public function create(array $data, array $items): Grn
     {
         return DB::transaction(function () use ($data, $items) {
-            $grn = Grn::create(array_merge($data, ['status' => 'pending', 'total_amount' => 0]));
 
-            $total = 0;
+
+            $purchaseOrder = PurchaseOrder::find($data['purchase_order_id']);
+
+        // BẮT BUỘC: Kiểm tra xem Purchase Order có được tìm thấy không
+        if (!$purchaseOrder) {
+            \Log::error('Không tìm thấy Purchase Order với ID: ' . $data['purchase_order_id']);
+            throw new Exception('Không tìm thấy Purchase Order với ID đã cung cấp.');
+        }
+
+
+
+            // $purchaseOrder = PurchaseOrder::findOrFail($data['purchase_order_id']);
+              if ($purchaseOrder->status === 'cancelled') {
+                 throw new Exception('Cannot create GRN for a cancelled Purchase Order.');
+             }
+            
+            $grn = Grn::create([
+                'user_id' => $data['user_id'], 
+                'purchase_order_id' => $data['purchase_order_id'],
+                'type' => $data['type'] ?? 'purchase', 
+                'notes' => $data['notes'] ?? null,
+                'status' => 'pending', 
+                'total_amount' => 0, 
+            ]);
+
+            $totalGrnAmount = 0;
             foreach ($items as $itemData) {
-                $subtotal = $itemData['ordered_quantity'] * $itemData['unit_cost'];
-                $grnItem = new GrnItem(array_merge($itemData, ['subtotal' => $subtotal]));
-                $grn->items()->save($grnItem);
-                $total += $subtotal;
+                $poItem = PurchaseOrderItem::with('variant')->findOrFail($itemData['purchase_order_item_id']);
+                // Kiểm tra số lượng nhận không vượt quá số lượng còn lại của PO item
+                $remainingQuantity = $poItem->ordered_quantity - $poItem->received_quantity;
+                if ($itemData['quantity'] > $remainingQuantity) {
+                    throw new Exception("Received quantity for item {$poItem->id} exceeds remaining ordered quantity. Remaining: {$remainingQuantity}, Received: {$itemData['quantity']}");
+                }
+                $unitCost = $poItem->unit_cost;
+                $subtotal = $itemData['quantity'] * $unitCost;
+
+                // Tạo GrnItem
+                $grnItem = $grn->items()->create([
+                    'purchase_order_item_id' => $poItem->id,
+                    'quantity' => $itemData['quantity'],
+                    'unit_cost' => $unitCost,
+                    'subtotal' => $subtotal,
+                ]);
+                $totalGrnAmount += $subtotal;
+                $poItem->increment('received_quantity', $itemData['quantity']);
             }
 
-            $grn->update(['total_amount' => $total]);
+            $grn->update(['total_amount' => $totalGrnAmount]);
+            // $purchaseOrder->refresh(); // Lấy dữ liệu mới nhất của PO sau khi các PO items đã được cập nhật
+            $totalOrderedQuantity = $purchaseOrder->items->sum('ordered_quantity');
+            $totalReceivedQuantity = $purchaseOrder->items->sum('received_quantity');
+
+             if ($totalReceivedQuantity >= $totalOrderedQuantity) {
+                $purchaseOrder->update(['status' => 'received']);
+            } elseif ($totalReceivedQuantity > 0) {
+                $purchaseOrder->update(['status' => 'partially_received']);
+            }
+
+
+            // $grn = $grn->load(['items.purchaseOrderItem.variant', 'purchaseOrder', 'user']);
+            \Log::info('Final GRN object before returning from service: ' . json_encode($grn));
             return $grn;
         });
     }
@@ -86,7 +141,7 @@ class GrnService
            public function confirm(int $grnId, array $itemsData): Grn
     {
         return DB::transaction(function () use ($grnId, $itemsData) {
-            $grn = Grn::with('items.variant')->findOrFail($grnId);
+            $grn = Grn::with('items.purchaseOrderItem.variant')->findOrFail($grnId); // Eager load variant
 
             if ($grn->status !== 'pending') {
                 throw new Exception('Only pending GRNs can be confirmed.');
@@ -102,33 +157,47 @@ class GrnService
             $newTotalAmount = 0; // Khởi tạo biến để tính tổng tiền mới cho GRN
 
             foreach ($itemsData as $itemData) {
-                $itemId = $itemData['id'];
-                $receivedQuantity = $itemData['received_quantity'];
+                $grnItemId = $itemData['id'];
+                $actualReceivedQuantity = $itemData['quantity'];
 
-                $item = $grn->items->firstWhere('id', $itemId);
+                $grnItem = $grn->items->firstWhere('id', $grnItemId);
 
-                if (!$item) {
-                    throw new Exception("GRN Item with ID {$itemId} not found for GRN {$grnId}.");
+                 if (!$grnItem) {
+                    throw new Exception("GRN Item with ID {$grnItemId} not found for GRN {$grnId}.");
                 }
 
-                // Tính toán lại subtotal dựa trên received_quantity
-                $newSubtotal = $receivedQuantity * $item->unit_cost;
+
+                 // Lấy PurchaseOrderItem và ProductVariant thông qua quan hệ
+                $purchaseOrderItem = $grnItem->purchaseOrderItem;
+                if (!$purchaseOrderItem) {
+                    throw new Exception("Associated Purchase Order Item not found for GRN Item {$grnItemId}.");
+                }
+
+                $variant = $purchaseOrderItem->variant; // Lấy variant từ purchase_order_item
+                if (!$variant) {
+                    throw new Exception("Variant not found for Purchase Order Item {$purchaseOrderItem->id}.");
+                }
+
+
+                $newSubtotal = $actualReceivedQuantity * $grnItem->unit_cost;
 
                 // Cập nhật received_quantity và subtotal cho item
-                $item->update([
-                    'received_quantity' => $receivedQuantity,
+                 $grnItem->update([
+                    'quantity' => $actualReceivedQuantity,
                     'subtotal' => $newSubtotal, // CẬP NHẬT SUBTOTA
                 ]);
 
                 // Cộng vào tổng tiền mới của GRN
                 $newTotalAmount += $newSubtotal;
 
-                \Log::info("Attempting to record inventory for variant: {$item->variant_id}, quantity: {$receivedQuantity}");
+            \Log::info("Attempting to record inventory for variant: {$grnItem->variant_id}, quantity: {$actualReceivedQuantity}"); 
+    
 
                 // Ghi nhận giao dịch tồn kho với số lượng thực tế nhận được
                 $this->inventoryService->recordInGrn(
-                    $item->variant_id,
-                    $receivedQuantity,
+                    $variant->id,
+                    $actualReceivedQuantity,
+                    $grnItem->unit_cost,
                     'GRN',
                     $grn->id,
                     $user->id,
@@ -141,7 +210,7 @@ class GrnService
                 'total_amount' => $newTotalAmount, // CẬP NHẬT TOTAL_AMOUNT
             ]);
 
-            return $grn->fresh(['items.variant', 'supplier', 'user']);
+            return $grn->fresh(['items.purchaseOrderItem.variant', 'purchaseOrder', 'user']);
         });
     }
     /**
@@ -169,7 +238,7 @@ class GrnService
      */
     public function all(): Collection
     {
-        return Grn::with(['supplier', 'user'])->orderBy('created_at', 'desc')->get();
+        return Grn::with(['purchaseOrder', 'user'])->orderBy('created_at', 'desc')->get();
     }
 
     /**
@@ -180,16 +249,8 @@ class GrnService
      */
     public function find(int $id): Grn
     {
-        $grn = Grn::with(['items.variant', 'supplier', 'user'])->findOrFail($id);
+        $grn = Grn::with(['items.purchaseOrderItem.variant', 'purchaseOrder', 'user'])->findOrFail($id);
 
-       // Loop through each item in the GRN
-        // foreach ($grn->items as $item) {
-        //     // Access the variant through the item's relationship
-        //     $variant = $item->variant;
-
-        //     // Access the image from the variant
-        //     $item->variant->img = $variant->image ? asset('storage/' . $variant->image) : null;
-        // }
 
         return $grn;
     }

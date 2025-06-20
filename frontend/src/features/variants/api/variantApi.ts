@@ -1,5 +1,6 @@
+// frontend\src\features\variants\api\variantApi.ts
 import { axiosRequest } from '@/lib/axiosRequest';
-
+import { Category } from '@/features/categories/api/categoryApi';
 export interface Variant {
   id: number;
   product_id: number;
@@ -8,10 +9,29 @@ export interface Variant {
   discount: number;
   stock: number;
   image?: string;
-  status?: number;
-
+  profit_percent: number | 0;
+  average_cost: number| 0;
+  category_name?: string
   variant_spec_values?: SpecValue[];
+  product?: Product;
+  full_name?: string;
+  image_url?: string;
+  status: number;
+}
 
+// Định nghĩa Product nếu chưa có
+export interface Product {
+  id: number;
+  name: string;
+  slug: string;
+  description: string | null;
+  cat_id: number;
+  brand_id: number;
+  is_featured: number;
+  status: number; // Đây là status của product, giá trị 1 là "Hoạt động"
+  created_at: string;
+  updated_at: string;
+  category?: Category; // Nếu category luôn được eager load
 }
 
 export interface SpecValue {
@@ -49,6 +69,14 @@ export interface SpecOption {
   updated_at: string;
 }
 const baseUrl = "/admin";
+
+
+// Định nghĩa interface cho phản hồi API từ PricingController
+export interface CommonPricingResponse {
+  message: string;
+  status: string; // 'success'
+  data: number; // Trường 'data' chứa updated_count
+}
 
 export const variantApi = {
 
@@ -101,14 +129,70 @@ export const variantApi = {
   ).then(res => res.data);
   },
 
+ toggleStatus: async (id: number, currentStatus: number): Promise<Variant> => {
+  return axiosRequest<{ data: Variant }>(
+    `${baseUrl}/variants/${id}/update`,
+    "PATCH",
+        { status: !currentStatus } // gửi status mới
+
+  ).then(res => res.data);
+},
+
   delete: async (id: number): Promise<void> => {
     return axiosRequest<{ message: string }>(`${baseUrl}/variants/${id}`, "DELETE")
       .then(() => {});
   },
 
-  toggleStatus: async (variant: Variant): Promise<Variant> => {
-    const updatedVariant = { ...variant, status: variant.status === 1 ? 0 : 1 };
-    return axiosRequest<{ data: Variant }>(`${baseUrl}/variants/${variant.id}`, "PATCH", updatedVariant)
-      .then(res => res.data);
+  
+  // --- CÁC HÀM API MỚI CHO PRICING ---
+
+  /**
+   * Đặt giá bán cho các biến thể dựa trên average_cost và tỷ lệ lợi nhuận mục tiêu.
+   * Có thể áp dụng chiến lược giá tâm lý.
+   * Corresponds to: POST /api/pricing/set-by-target-profit
+   * @param variantIds Mảng ID của các Variant cần cập nhật.
+   * @param profitPercent Tỷ lệ lợi nhuận mới mong muốn (ví dụ: 25 cho 25%).
+   * @param psychologicalStrategy Tùy chọn chiến lược giá tâm lý (e.g., 'charm_vnd_990').
+   * @returns Promise<CommonPricingResponse> Đối tượng chứa tin nhắn, trạng thái và số lượng cập nhật.
+   */
+  setPricesByTargetProfit: async (
+    variantIds: number[],
+    profitPercent: number,
+    psychologicalStrategy?: string
+  ): Promise<CommonPricingResponse> => { // Cập nhật kiểu trả về
+    const payload: { variant_ids: number[]; profit_percent: number; } = {
+      variant_ids: variantIds,
+      profit_percent: profitPercent,
+    };
+  
+    return axiosRequest<CommonPricingResponse>( // Cập nhật kiểu cho axiosRequest
+      `/admin/pricing/set-by-target-profit`,
+      "POST",
+      payload
+    ).then(res => res); // axiosRequest đã trả về response.data, nên chỉ cần res
   },
+
+  /**
+   * Cập nhật lại giá bán của các biến thể dựa trên average_cost và profit_percent hiện tại của chúng.
+   * Có thể áp dụng chiến lược giá tâm lý.
+   * Corresponds to: POST /api/pricing/recalculate-by-current-cost
+   * @param variantIds Mảng ID của các Variant cần cập nhật.
+   * @param psychologicalStrategy Tùy chọn chiến lược giá tâm lý (e.g., 'charm_vnd_990').
+   * @returns Promise<CommonPricingResponse> Đối tượng chứa tin nhắn, trạng thái và số lượng cập nhật.
+   */
+  recalculatePricesByCurrentCost: async (
+    variantIds: number[],
+    psychologicalStrategy?: string
+  ): Promise<CommonPricingResponse> => { // Cập nhật kiểu trả về
+    const payload: { variant_ids: number[] } = {
+      variant_ids: variantIds,
+    };
+    
+    return axiosRequest<CommonPricingResponse>( // Cập nhật kiểu cho axiosRequest
+      `/admin/pricing/recalculate-by-current-cost`,
+      "POST",
+      payload
+    ).then(res => res); // axiosRequest đã trả về response.data, nên chỉ cần res
+  },
+
 };

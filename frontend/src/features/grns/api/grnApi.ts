@@ -1,49 +1,25 @@
 // frontend/src/lib/grnApi.ts
 import { axiosRequest } from '@/lib/axiosRequest';
+import { PurchaseOrder, PurchaseOrderItem } from '@/features/purchase_orders/api/purchaseOrderApi';
 
-/**
- * Định nghĩa Variant trả về từ API
- */
-export interface Variant {
-  id: number;
-  sku: string;
-  price: number;
-  discount: number;
-  stock: number;
-  full_name: string;
-  image_url: string | null;
-}
-
-/**
- * Định nghĩa Supplier
- */
-export interface Supplier {
-  id: number;
-  name: string;
-  phone: string;
-  address: string;
-}
-
-/**
- * Định nghĩa User (người tạo phiếu)
- */
 export interface User {
   id: number;
   name: string;
   email: string;
 }
 
+
+
 /**
  * Định nghĩa từng dòng GRN Item
  */
 export interface GrnItem {
   id: number;
-  variant_id: number;
-  ordered_quantity: number;
+  purchase_order_item_id: number;
+  quantity: number;
   unit_cost: number;
   subtotal: number;
-  received_quantity: number;
-  variant: Variant;
+  purchase_order_item: PurchaseOrderItem ; 
 }
 
 /**
@@ -51,31 +27,29 @@ export interface GrnItem {
  */
 export interface Grn {
   id: number;
-  code: string;
-  type: 'purchase' | 'return';
-  expected_delivery_date: string;
+  user_id: number;
+  purchase_order_id: number;
+  type: 'purchase' ;
   total_amount: number;
   status: 'pending' | 'confirmed' | 'cancelled';
   notes: string | null;
   created_at: string;
   updated_at: string;
-  supplier: Supplier;
   user: User;
   items: GrnItem[];
+  purchase_order: PurchaseOrder;
 }
 
 /**
  * Payload khi tạo GRN mới
  */
 export interface GrnCreatePayload {
-  type: 'purchase' | 'return';
-  expected_delivery_date: string;
-  supplier_id: number;
-  notes: string | null;
+  purchase_order_id: number; 
+  notes?: string | null; 
   items: Array<{
-    variant_id: number;
-    ordered_quantity: number;
-    unit_cost: number;
+    purchase_order_item_id: number; 
+    quantity: number; 
+    unit_cost?: number; 
   }>;
 }
 
@@ -129,7 +103,7 @@ export async function cancelGrn(id: number): Promise<Grn> {
 export interface GrnConfirmPayload {
   items: Array<{
     id: number; // ID của GrnItem (tức là item.id từ frontend)
-    received_quantity: number;
+    quantity: number;
   }>;
 }
 export async function confirmGrn(id: number, payload: GrnConfirmPayload): Promise<Grn> {
@@ -140,11 +114,4 @@ export async function confirmGrn(id: number, payload: GrnConfirmPayload): Promis
   );
   return res.data;
 }
-// /** Xác nhận GRN */
-// export async function confirmGrn(id: number): Promise<Grn> {
-//   const res = await axiosRequest<ApiResponse<Grn>>(
-//     `${BASE}/${id}/confirm`,
-//     'PATCH'
-//   );
-//   return res.data;
-// }
+

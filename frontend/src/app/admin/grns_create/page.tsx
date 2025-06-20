@@ -358,11 +358,17 @@ export default function GrnCreatePage() {
                           );
                         }}
                       />
-                      <img
-                        src={v.image}
-                        alt={v.full_name}
-                        className="w-12 h-12 object-cover rounded mr-2"
-                      />
+                      {v.image_url ? ( // Thêm kiểm tra tồn tại URL ảnh
+                                <img
+                                  src={v.image_url} // <-- SỬA THÀNH ĐÂY
+                                  alt={v.full_name || "Variant Image"}
+                                  className="w-12 h-12 object-cover rounded mr-2"
+                                />
+                              ) : (
+                                <div className="w-12 h-12 flex items-center justify-center bg-gray-200 text-gray-500 text-xs rounded mr-2">
+                                No img
+                                </div>
+                              )}
                       <span className="flex-1">{v.full_name}</span>
                     </label>
                   ))}
@@ -400,11 +406,17 @@ export default function GrnCreatePage() {
                 <div className="overflow-auto flex-1">
                   {variantList.filter(v => v._checked).map(v => (
                     <div key={v.id} className="flex items-center mb-2">
-                      <img
-                        src={v.image}
-                        alt={v.full_name}
-                        className="w-8 h-8 object-cover rounded mr-2"
-                      />
+                      {v.image_url ? ( // Thêm kiểm tra tồn tại URL ảnh
+                                <img
+                                  src={v.image_url} // <-- SỬA THÀNH ĐÂY
+                                  alt={v.full_name || "Variant Image"}
+                                  className="w-12 h-12 object-cover rounded mr-2"
+                                />
+                              ) : (
+                                <div className="w-12 h-12 flex items-center justify-center bg-gray-200 text-gray-500 text-xs rounded mr-2">
+                                No img
+                                </div>
+                              )}
                       <span className="flex-1">{v.full_name}</span>
                       <button
                         className="text-gray-500 hover:text-gray-700"

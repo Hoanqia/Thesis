@@ -15,6 +15,7 @@ type CrudModalProps<T extends CrudItem> = {
   title?: string;
   fieldsConfig?: Partial<Record<keyof T, FieldConfig>>;
     extraForm?: React.ReactNode;  // <-- Thêm dòng này
+  children?: React.ReactNode; // <--- THÊM DÒNG NÀY ĐỂ CHẤP NHẬN CHILDREN
 
 };
 

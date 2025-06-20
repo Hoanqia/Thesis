@@ -21,6 +21,8 @@ use App\Http\Controllers\UserEventController;
 use App\Http\Controllers\RecommendationController;
 use App\Http\Controllers\GrnController;
 use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\PricingController;
+use App\Http\Controllers\PurchaseOrderController;
 // use app\Http\Middleware\RoleMiddleware;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
@@ -53,11 +55,35 @@ Route::middleware(['jwt.auth'])->group(function () {
     Route::middleware('role:admin')->group(function (){
         Route::prefix('admin')->group(function () {
 
+            Route::patch('/purchase_orders/{id}/status',[PurchaseOrderController::class,'updateStatus']);
+            Route::delete('/purchase_orders/{id}',[PurchaseOrderController::class,'destroy']);
+            Route::patch('/purchase_orders/{id}',[PurchaseOrderController::class,'update']);
+            Route::get('/purchase_orders/{id}',[PurchaseOrderController::class,'show']);
+            Route::post('/purchase_orders',[PurchaseOrderController::class,'store']);
+            Route::get('/purchase_orders',[PurchaseOrderController::class,'index']);
+
+
+
+            Route::get('/suppliers/{supplierId}/variants', [SupplierController::class, 'getSupplierVariants']);
+            Route::delete('/suppliers/{supplierId}/variants/{variantFromSupplierId}',[SupplierController::class,'removeVariantFromSupplier']);
+            Route::get('/suppliers/{supplierId}/variants/{variantFromSupplierId}', [SupplierController::class, 'showSupplierVariant']);
+            Route::post('/suppliers/{supplierId}/variants', [SupplierController::class, 'addVariantToSupplier']);
+            Route::patch('/suppliers/{supplierId}/variants/{variantFromSupplierId}', [SupplierController::class, 'updateSupplierVariant']);
+            Route::patch('/suppliers/{supplierId}/variants', [SupplierController::class, 'updateSupplierVariants']); 
+
+
             Route::delete('/suppliers/{id}',[SupplierController::class,'destroy']);
             Route::patch('/suppliers/{id}',[SupplierController::class,'update']);
             Route::get('/suppliers/{id}',[SupplierController::class,'show']);
             Route::post('/suppliers',[SupplierController::class,'store']);
             Route::get('/suppliers',[SupplierController::class,'index']);
+
+
+
+            Route::post('/pricing/set-by-target-profit',[PricingController::class,'setPricesByTargetProfit']);
+            Route::post('/pricing/recalculate-by-current-cost',[PricingController::class,'recalculatePricesByCurrentCost']);
+
+            
 
             Route::patch('/grns/{id}/cancel',[GrnController::class,'cancel']);
             Route::patch('/grns/{id}/confirm',[GrnController::class,'confirm']);

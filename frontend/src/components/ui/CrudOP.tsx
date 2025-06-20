@@ -15,7 +15,7 @@ import { CrudModal } from "@/components/ui/CrudModal";
 
 export interface FieldConfig {
   label?: string;
-  type?: "text" | "number" | "checkbox" | "select" | "file" | "tags";
+  type?: "text" | "number" | "checkbox" | "select" | "file" | "tags" ;
   options?: { label: string; value: any }[];
   placeholder?: string;
   required?: boolean;
@@ -47,7 +47,7 @@ interface CrudGenericProps<T extends CrudItem> {
   columns: (keyof T)[];
   headerLabels?: Partial<Record<keyof T, string>>;
   renderRow?: (item: T, column: keyof T) => React.ReactNode;
-  onCreate?: () => void; // ✅ không có tham số
+  onCreate?: (item: Omit<T, "id">) => void;
   onUpdate?: (id: number, item: Omit<T, "id">) => void;
   onDelete?: (id: number) => void;
   onToggleStatus?: (id: number) => void;
@@ -56,7 +56,7 @@ interface CrudGenericProps<T extends CrudItem> {
   fieldsConfig?: Partial<Record<keyof T, FieldConfig>>;  // <--- thêm prop này
   onChange?: (data: T[]) => void;
   extraForm?: React.ReactNode;
-
+  
 }
 
 export default function CrudGeneric<T extends CrudItem>({
@@ -74,6 +74,7 @@ export default function CrudGeneric<T extends CrudItem>({
   fieldsConfig,  // <-- thêm đây
   onChange,
   extraForm,
+ 
 }: CrudGenericProps<T>) {
   const [data, setData] = useState<T[]>(initialData ?? []);
   const [search, setSearch] = useState("");
@@ -112,14 +113,10 @@ const paginatedData = useMemo(() => {
 }, [filtered, currentPage]);
 
 
- const handleCreate = () => {
-  if (onCreate) {
-    onCreate(); // Gọi hàm tạo từ bên ngoài nếu có (ví dụ để chuyển trang)
-  } else {
+  const handleCreate = () => {
     setEditingItem(null);
-    setIsModalOpen(true); // Mặc định mở modal nếu không có onCreate truyền vào
-  }
-};
+    setIsModalOpen(true);
+  };
 
   const handleSubmit = (item: Omit<T, "id">) => {
         if (editingItem) {
@@ -134,7 +131,7 @@ const paginatedData = useMemo(() => {
       const newItem = { id: Date.now(), ...item } as T;
       const newData = [...data, newItem];
       setData(newData);
-      // onCreate?.(item);
+      onCreate?.(item);
       onChange?.(newData); // ✅
     }
 
@@ -222,20 +219,20 @@ const paginatedData = useMemo(() => {
                     {/* <DropdownMenuItem onSelect={() => handleEdit(item)}>
                       Chỉnh sửa
                     </DropdownMenuItem> */}
-                    {/* <DropdownMenuItem
+                    <DropdownMenuItem
                       onSelect={() => handleDelete(item.id)}
                       className="text-red-600"
                     >
                       Xoá
-                    </DropdownMenuItem> */}
-                    {/* {"status" in item && (
+                    </DropdownMenuItem>
+                    {"status" in item && (
                       <DropdownMenuItem
                         onSelect={() => handleToggleStatus(item.id)}
                         className="text-green-600"
                       >
                         Chuyển trạng thái
                       </DropdownMenuItem>
-                    )} */}
+                    )}
                 {renderActions &&
                         renderActions(item).map((action, idx) => (
                         <DropdownMenuItem

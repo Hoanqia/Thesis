@@ -139,17 +139,20 @@
       }
     };
 
-    const handleToggleStatus = async (id: number) => {
-      try {
-        const variant = variants.find((v) => v.id === id);
-        if (!variant) throw new Error("Variant không tồn tại");
-        await variantApi.toggleStatus(variant);
-        fetchAll();
-        toast.success("Chuyển trạng thái thành công");
-      } catch (error: any) {
-        toast.error(error.message || "Lỗi khi đổi trạng thái");
-      }
-    };
+   const handleToggleStatus = async (id: number) => {
+  try {
+    const variant = variants.find((v) => v.id === id);
+    if (!variant) throw new Error("Variant không tồn tại");
+    
+    await variantApi.toggleStatus(variant.id, variant.status); // ✅ Sửa ở đây
+
+    fetchAll();
+    toast.success("Chuyển trạng thái thành công");
+  } catch (error: any) {
+    toast.error(error.message || "Lỗi khi đổi trạng thái");
+  }
+};
+
 
     const currentProduct = products.find((p) => p.value === productId);
     const categoryId = currentProduct?.categoryId ?? 0;
@@ -160,17 +163,17 @@
         <CrudGeneric<Variant>
           title="Quản lý Variant"
           initialData={variants}
-          columns={["id", "sku", "price", "discount", "stock", "status", "image"]}
-          fields={["sku", "price", "discount", "stock", "status", "image"]}
+          columns={["id", "sku", "price", "stock", "image","profit_percent","average_cost",'status']}
+          fields={["profit_percent",'status', "image"]}
           onCreate={handleCreate}
           onUpdate={handleUpdate}
           onDelete={handleDelete}
           onToggleStatus={handleToggleStatus}
           fieldsConfig={{
-            sku: { label: "SKU", type: "text", placeholder: "Nhập SKU", required: false },
-            price: { label: "Giá", type: "number", required: true },
-            discount: { label: "Giảm giá", type: "number" },
-            stock: { label: "Tồn kho", type: "number", required: true },
+            // sku: { label: "SKU", type: "text", placeholder: "Nhập SKU", required: false },
+            // price: { label: "Giá", type: "number", required: true },
+            // discount: { label: "Giảm giá", type: "number" },
+            profit_percent: { label: "Phần trăm lợi nhuận", type: "number", required: true },
             status: {
               label: "Trạng thái",
               type: "select",

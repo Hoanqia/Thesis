@@ -41,4 +41,26 @@ class PurchaseOrderItem extends Model
     {
         return $this->belongsTo(Variant::class, 'variant_id');
     }
+
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        // Lắng nghe sự kiện "deleting" (trước khi bản ghi bị xóa)
+        static::deleting(function ($item) {
+            Log::warning('DELETING PurchaseOrderItem ID: ' . $item->id);
+            Log::warning('PurchaseOrderItem Data being deleted: ' . json_encode($item->toArray()));
+            Log::warning('Current stack trace for deleting event: ' . (new \Exception())->getTraceAsString());
+            // Bạn có thể ném Exception ở đây để ngăn chặn việc xóa nếu cần
+            // throw new \Exception('Không được xóa PurchaseOrderItem này!');
+        });
+
+        // Lắng nghe sự kiện "deleted" (sau khi bản ghi đã bị xóa)
+        static::deleted(function ($item) {
+            Log::warning('DELETED PurchaseOrderItem ID: ' . $item->id);
+            Log::warning('PurchaseOrderItem (after deletion, usually just ID): ' . json_encode($item->toArray()));
+            Log::warning('Current stack trace for deleted event: ' . (new \Exception())->getTraceAsString());
+        });
+    }
 }

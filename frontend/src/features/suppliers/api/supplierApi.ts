@@ -13,6 +13,7 @@ export interface Supplier {
 }
 
 
+
 export interface VariantFromSupplier {
   id: number;
   supplier_id: number;
@@ -20,6 +21,7 @@ export interface VariantFromSupplier {
   variant_supplier_sku?: string | null; 
   current_purchase_price: number;
   is_active: boolean;
+  is_default: boolean;
   created_at?: string;
   updated_at?: string;
   
@@ -274,6 +276,17 @@ const promises = mergedPayload.map(async (item) => {
       'DELETE'
     );
   },
+
+  setDefaultVariantFromSupplier: async (variantFromSupplierId: number): Promise<ApiResponse<void>> => {
+    const res = await axiosRequest<ApiResponse<void>>(
+      `admin/${variantFromSupplierId}/set-default`,
+      'PATCH'
+    );
+    // axiosRequest đã tự động throw error nếu có, nên chỉ cần trả về res
+    return res;
+  },
+
+
 
 };
 

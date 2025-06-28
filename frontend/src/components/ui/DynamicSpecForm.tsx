@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { fetchSpecificationsByProductId, fetchSpecValueSuggestions } from "@/features/specifications/api/specificationApi";
 import { variantApi } from "@/features/variants/api/variantApi";
 import type { Specification } from "@/features/specifications/api/specificationApi";
-
+import {Input} from "@/components/ui/Input";
 type SpecValue = {
   value_text?: string | null;
   value_int?: number | null;
@@ -183,7 +183,7 @@ export default function DynamicSpecForm({
 
               {spec.data_type === "text" && (
                 <>
-                  <input
+                  <Input
                     type="text"
                     id={`spec-input-${spec.id}`}
                     value={val.value_text ?? ""}
@@ -225,7 +225,7 @@ export default function DynamicSpecForm({
               )}
 
               {(spec.data_type === "int" || spec.data_type === "decimal") && (
-                <input
+                <Input
                   type="number"
                   step={spec.data_type === "decimal" ? "0.01" : "1"}
                   value={

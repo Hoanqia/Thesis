@@ -240,5 +240,15 @@ class SupplierController extends Controller
             return ApiExceptionHandler::handleException($e);
         }
     }
-    
+    public function setDefautVariantFromSupplier(int $variantFromSupplierId): JsonResponse{
+        try {
+            $this->service->setDefault($variantFromSupplierId);
+            return response()->json([
+                'message' => 'Cập nhật trạng thái mặc định thành công',
+                'status'  => 'success'
+            ], Response::HTTP_OK);
+        }catch(\Exception $e){
+            return ApiExceptionHandler::handleException($e);
+        }
+    }
 }

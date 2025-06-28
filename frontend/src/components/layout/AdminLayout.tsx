@@ -81,17 +81,20 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   const menuItems = [
-    { name: "User", icon: <User size={20} />, href: "/admin/users" },
-    { name: "Category", icon: <Layers size={20} />, href: "/admin/categories" },
-    { name: "Brand", icon: <Tag size={20} />, href: "/admin/brands" },
-    { name: "Product", icon: <Package size={20} />, href: "/admin/products" },
-    { name: "Order", icon: <Sliders size={20} />, href: "/admin/orders" },
-    { name: "Price", icon: <Sliders size={20} />, href: "/admin/bulk-price-update" },
+    { name: "Người dùng", icon: <User size={20} />, href: "/admin/users" },
+    { name: "Danh mục", icon: <Layers size={20} />, href: "/admin/categories" },
+    { name: "Hãng", icon: <Tag size={20} />, href: "/admin/brands" },
+    { name: "Sản phẩm", icon: <Package size={20} />, href: "/admin/products" },
+    { name: "Đơn mua hàng", icon: <Sliders size={20} />, href: "/admin/orders" },
+    { name: "Nhà cung cấp", icon: <MapPin size={20} />, href: "/admin/suppliers" },
+    { name: "Phiếu nhập hàng", icon: <FileText size={20} />, href: "/admin/grns" },
+    { name: "Đơn đặt hàng", icon: <Settings size={20} />, href: "/admin/purchase_orders" },
+    { name: "Quản lý giá", icon: <Sliders size={20} />, href: "/admin/bulk-price-update" },
+    { name: "Lô hàng", icon: <Sliders size={20} />, href: "/admin/stocklots" },
+
+    { name: "Đánh giá", icon: <FileText size={20} />, href: "/admin/reviews" },
     { name: "Voucher", icon: <ListChecks size={20} />, href: "/admin/vouchers" },
-    { name: "GRN", icon: <FileText size={20} />, href: "/admin/grns" },
-    { name: "Review", icon: <FileText size={20} />, href: "/admin/reviews" },
-    { name: "Supplier", icon: <MapPin size={20} />, href: "/admin/suppliers" },
-    { name: "Purchase_Order", icon: <Settings size={20} />, href: "/admin/purchase_orders" },
+
   ];
 
   const unreadNotifications = 5;

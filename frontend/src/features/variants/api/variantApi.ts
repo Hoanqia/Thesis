@@ -1,6 +1,7 @@
 // frontend\src\features\variants\api\variantApi.ts
 import { axiosRequest } from '@/lib/axiosRequest';
 import { Category } from '@/features/categories/api/categoryApi';
+import { VariantFromSupplier } from '@/features/suppliers/api/supplierApi';
 export interface Variant {
   id: number;
   product_id: number;
@@ -16,8 +17,29 @@ export interface Variant {
   product?: Product;
   full_name?: string;
   image_url?: string;
+  available_stock_for_sale?: number;
   status: number;
+  variant_from_suppliers?: VariantFromSupplier[];
+  selected_supplier_id?: number;
+  selected_supplier_price?: number;
 }
+
+interface VariantPricingData {
+  variant_id: number;
+  variant_from_supplier_id: number;
+}
+interface SetByTargetProfitFromSupplierPayload {
+  variants: VariantPricingData[];
+  profit_percent: number;
+  psychological_strategy?: string;
+}
+
+interface RecalculateByChosenSupplierCostPayload {
+  variants: VariantPricingData[];
+  psychological_strategy?: string;
+}
+
+
 
 // Định nghĩa Product nếu chưa có
 export interface Product {
@@ -78,7 +100,7 @@ export interface CommonPricingResponse {
   data: number; // Trường 'data' chứa updated_count
 }
 
-export const variantApi = {
+export const  variantApi = {
 
   fetchAllVariants: async (): Promise<Variant[]> => {
     return axiosRequest<{data: Variant[]}>(`${baseUrl}/variants`,"GET").then(res => res.data);
@@ -194,5 +216,45 @@ export const variantApi = {
       payload
     ).then(res => res); // axiosRequest đã trả về response.data, nên chỉ cần res
   },
+
+
+   /**
+   * Đặt giá bán cho các biến thể dựa trên giá mua từ một VariantFromSupplier CỤ THỂ và tỷ lệ lợi nhuận mục tiêu.
+   * Endpoint: POST /admin/pricing/setByTargetProfitFromSupplier
+   * Yêu cầu quyền admin.
+   * @param payload Dữ liệu bao gồm danh sách variants, tỷ lệ lợi nhuận và chiến lược giá tâm lý.
+   * @returns Promise<CommonPricingResponse> Số lượng bản ghi đã cập nhật.
+   */
+  setPricesByTargetProfitFromSupplier: async (
+    payload: SetByTargetProfitFromSupplierPayload
+  ): Promise<CommonPricingResponse> => {
+    const res = await axiosRequest<CommonPricingResponse>(
+      `/admin/pricing/setByTargetProfitFromSupplier`, // Sử dụng đường dẫn đầy đủ từ root
+      'POST',
+      payload
+    );
+    // axiosRequest đã tự động throw error nếu có, nên chỉ cần trả về res
+    return res;
+  },
+
+  /**
+   * Cập nhật lại giá bán của các biến thể dựa trên giá mua từ một VariantFromSupplier CỤ THỂ và profit_percent hiện tại của Variant.
+   * Endpoint: POST /admin/pricing/recalculateByChosenSupplierCost
+   * Yêu cầu quyền admin.
+   * @param payload Dữ liệu bao gồm danh sách variants và chiến lược giá tâm lý.
+   * @returns Promise<CommonPricingResponse> Số lượng bản ghi đã cập nhật.
+   */
+  recalculatePricesByChosenSupplierCost: async (
+    payload: RecalculateByChosenSupplierCostPayload
+  ): Promise<CommonPricingResponse> => {
+    const res = await axiosRequest<CommonPricingResponse>(
+      `/admin/pricing/recalculateByChosenSupplierCost`, // Sử dụng đường dẫn đầy đủ từ root
+      'POST',
+      payload
+    );
+    // axiosRequest đã tự động throw error nếu có, nên chỉ cần trả về res
+    return res;
+  },
+
 
 };

@@ -8,21 +8,22 @@ use App\Models\Grn;
 use App\Models\GrnItem;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
-use App\Services\InventoryTransactionService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use App\Models\PurchaseOrder; 
 use App\Models\PurchaseOrderItem; // Cần import PurchaseOrderItem
+use App\Services\StockLotService; // Thêm import StockLotService
+
 use Exception;
 
 
 class GrnService
 {
-    protected InventoryTransactionService $inventoryService;
+    protected StockLotService $stockLotService; 
 
-    public function __construct(InventoryTransactionService $inventoryService)
+    public function __construct(StockLotService $stockLotService)
     {
-        $this->inventoryService = $inventoryService;
+        $this->stockLotService = $stockLotService;
     }
 
     /**
@@ -32,25 +33,99 @@ class GrnService
      * @param array $items each item: variant_id, ordered_quantity, unit_cost
      * @return Grn
      */
+    // public function create(array $data, array $items): Grn
+    // {
+    //     return DB::transaction(function () use ($data, $items) {
+
+
+    //         $purchaseOrder = PurchaseOrder::find($data['purchase_order_id']);
+
+    //     // BẮT BUỘC: Kiểm tra xem Purchase Order có được tìm thấy không
+    //     if (!$purchaseOrder) {
+    //         \Log::error('Không tìm thấy Purchase Order với ID: ' . $data['purchase_order_id']);
+    //         throw new Exception('Không tìm thấy Purchase Order với ID đã cung cấp.');
+    //     }
+
+
+
+    //         // $purchaseOrder = PurchaseOrder::findOrFail($data['purchase_order_id']);
+    //           if ($purchaseOrder->status === 'cancelled') {
+    //              throw new Exception('Cannot create GRN for a cancelled Purchase Order.');
+    //          }
+            
+    //         $grn = Grn::create([
+    //             'user_id' => $data['user_id'], 
+    //             'purchase_order_id' => $data['purchase_order_id'],
+    //             'type' => $data['type'] ?? 'purchase', 
+    //             'notes' => $data['notes'] ?? null,
+    //             'status' => 'pending', 
+    //             'total_amount' => 0, 
+    //         ]);
+    //     \Log::info("GRN created successfully with ID: {$grn->id}"); // <-- Thêm log này
+
+    //         $totalGrnAmount = 0;
+    //         foreach ($items as $itemData) {
+    //             $poItem = PurchaseOrderItem::with('variant')->findOrFail($itemData['purchase_order_item_id']);
+    //                             \Log::info("Processing itemData for GRN {$grn->id}: " . json_encode($itemData)); // THÊM LOG NÀY
+
+    //             // Kiểm tra số lượng nhận không vượt quá số lượng còn lại của PO item
+    //             $remainingQuantity = $poItem->ordered_quantity - $poItem->received_quantity;
+    //             if ($itemData['quantity'] > $remainingQuantity) {
+    //                 throw new Exception("Received quantity for item {$poItem->id} exceeds remaining ordered quantity. Remaining: {$remainingQuantity}, Received: {$itemData['quantity']}");
+    //             }
+    //             $unitCost = $poItem->unit_cost;
+    //             $subtotal = $itemData['quantity'] * $unitCost;
+
+    //             // Tạo GrnItem
+    //             $grnItem = $grn->items()->create([
+    //                 'purchase_order_item_id' => $poItem->id,
+    //                 'quantity' => $itemData['quantity'],
+    //                 'unit_cost' => $unitCost,
+    //                 'subtotal' => $subtotal,
+    //             ]);
+    //             $totalGrnAmount += $subtotal;
+    //             $poItem->increment('received_quantity', $itemData['quantity']);
+    //         }
+
+    //         $grn->update(['total_amount' => $totalGrnAmount]);
+    //         $purchaseOrder->refresh(); // Lấy dữ liệu mới nhất của PO sau khi các PO items đã được cập nhật
+    //         $totalOrderedQuantity = $purchaseOrder->items->sum('ordered_quantity');
+    //         $totalReceivedQuantity = $purchaseOrder->items->sum('received_quantity');
+
+    //          if ($totalReceivedQuantity >= $totalOrderedQuantity) {
+    //             $purchaseOrder->update(['status' => 'received']);
+    //         } elseif ($totalReceivedQuantity > 0) {
+    //             $purchaseOrder->update(['status' => 'partially_received']);
+    //         }
+
+
+    //         // $grn = $grn->load(['items.purchaseOrderItem.variant', 'purchaseOrder', 'user']);
+    //         \Log::info('Final GRN object before returning from service: ' . json_encode($grn));
+    //         return $grn;
+    //     });
+    // }
+
     public function create(array $data, array $items): Grn
     {
+        \Log::info('Starting GrnService::create transaction.'); // Log ngay khi bắt đầu hàm
         return DB::transaction(function () use ($data, $items) {
-
+            \Log::info('Inside DB transaction for GrnService::create.');
+            \Log::info('Incoming GRN data: ' . json_encode($data));
+            \Log::info('Incoming GRN items count: ' . count($items)); // Log số lượng items nhận được
 
             $purchaseOrder = PurchaseOrder::find($data['purchase_order_id']);
 
-        // BẮT BUỘC: Kiểm tra xem Purchase Order có được tìm thấy không
-        if (!$purchaseOrder) {
-            \Log::error('Không tìm thấy Purchase Order với ID: ' . $data['purchase_order_id']);
-            throw new Exception('Không tìm thấy Purchase Order với ID đã cung cấp.');
-        }
+            // BẮT BUỘC: Kiểm tra xem Purchase Order có được tìm thấy không
+            if (!$purchaseOrder) {
+                \Log::error('Không tìm thấy Purchase Order với ID: ' . $data['purchase_order_id'] . '. Throwing exception.');
+                throw new Exception('Không tìm thấy Purchase Order với ID đã cung cấp.');
+            }
+            \Log::info("Found Purchase Order ID: {$purchaseOrder->id}, Status: {$purchaseOrder->status}.");
 
-
-
-            // $purchaseOrder = PurchaseOrder::findOrFail($data['purchase_order_id']);
-              if ($purchaseOrder->status === 'cancelled') {
-                 throw new Exception('Cannot create GRN for a cancelled Purchase Order.');
-             }
+            if ($purchaseOrder->status === 'cancelled') {
+                \Log::error('Cannot create GRN for a cancelled Purchase Order. PO ID: ' . $purchaseOrder->id . '. Throwing exception.');
+                throw new Exception('Cannot create GRN for a cancelled Purchase Order.');
+            }
             
             $grn = Grn::create([
                 'user_id' => $data['user_id'], 
@@ -60,84 +135,84 @@ class GrnService
                 'status' => 'pending', 
                 'total_amount' => 0, 
             ]);
+            \Log::info("GRN created successfully with ID: {$grn->id}, initial status: {$grn->status}.");
 
             $totalGrnAmount = 0;
-            foreach ($items as $itemData) {
-                $poItem = PurchaseOrderItem::with('variant')->findOrFail($itemData['purchase_order_item_id']);
-                // Kiểm tra số lượng nhận không vượt quá số lượng còn lại của PO item
-                $remainingQuantity = $poItem->ordered_quantity - $poItem->received_quantity;
-                if ($itemData['quantity'] > $remainingQuantity) {
-                    throw new Exception("Received quantity for item {$poItem->id} exceeds remaining ordered quantity. Remaining: {$remainingQuantity}, Received: {$itemData['quantity']}");
-                }
-                $unitCost = $poItem->unit_cost;
-                $subtotal = $itemData['quantity'] * $unitCost;
+            if (empty($items)) {
+                \Log::warning("No items provided for GRN {$grn->id}. GRN will be created without items.");
+            }
 
-                // Tạo GrnItem
-                $grnItem = $grn->items()->create([
-                    'purchase_order_item_id' => $poItem->id,
-                    'quantity' => $itemData['quantity'],
-                    'unit_cost' => $unitCost,
-                    'subtotal' => $subtotal,
-                ]);
-                $totalGrnAmount += $subtotal;
-                $poItem->increment('received_quantity', $itemData['quantity']);
+            foreach ($items as $itemData) {
+                try {
+                    \Log::info("Processing itemData for GRN {$grn->id}, PO Item ID: {$itemData['purchase_order_item_id']}: " . json_encode($itemData));
+
+                    // Sử dụng findOrFail để ném Exception nếu không tìm thấy
+                    $poItem = PurchaseOrderItem::with('variant')->findOrFail($itemData['purchase_order_item_id']);
+                    \Log::info("Found PO Item {$poItem->id}. Current state: Ordered={$poItem->ordered_quantity}, Received={$poItem->received_quantity}.");
+
+                    // Kiểm tra số lượng nhận không vượt quá số lượng còn lại của PO item
+                    $remainingQuantity = $poItem->ordered_quantity - $poItem->received_quantity;
+                    \Log::info("Remaining quantity for PO Item {$poItem->id}: {$remainingQuantity}. Requested quantity: {$itemData['quantity']}.");
+
+                    if ($itemData['quantity'] > $remainingQuantity) {
+                        \Log::error("Received quantity for item {$poItem->id} exceeds remaining ordered quantity. Remaining: {$remainingQuantity}, Received: {$itemData['quantity']}. Throwing exception.");
+                        throw new Exception("Received quantity for item {$poItem->id} exceeds remaining ordered quantity. Remaining: {$remainingQuantity}, Received: {$itemData['quantity']}");
+                    }
+                    $unitCost = $poItem->unit_cost;
+                    $subtotal = $itemData['quantity'] * $unitCost;
+                    \Log::info("Calculated subtotal for PO Item {$poItem->id}: {$subtotal}.");
+
+                    // Tạo GrnItem
+                    $grnItem = $grn->items()->create([
+                        'purchase_order_item_id' => $poItem->id,
+                        'quantity' => $itemData['quantity'],
+                        'unit_cost' => $unitCost,
+                        'subtotal' => $subtotal,
+                    ]);
+                    \Log::info("GRN Item created successfully for GRN {$grn->id}, PO Item {$poItem->id}. GRN Item ID: {$grnItem->id}, Quantity: {$grnItem->quantity}.");
+
+                    $totalGrnAmount += $subtotal;
+                    \Log::info("Current totalGrnAmount: {$totalGrnAmount}.");
+
+                    // Cập nhật số lượng đã nhận của PurchaseOrderItem
+                    $poItem->increment('received_quantity', $itemData['quantity']);
+                    $poItem->refresh(); // Rất quan trọng để lấy giá trị mới nhất sau increment
+                    \Log::info("PO Item {$poItem->id} received_quantity incremented. New received_quantity: {$poItem->received_quantity}.");
+
+                } catch (\Exception $e) {
+                    \Log::error("Error processing GRN item for GRN {$grn->id}, PO Item ID (attempted): " . ($itemData['purchase_order_item_id'] ?? 'N/A') . ". Error: " . $e->getMessage());
+                    \Log::error($e->getTraceAsString()); // Ghi lại full stack trace
+                    throw $e; // Re-throw để transaction bị rollback
+                }
             }
 
             $grn->update(['total_amount' => $totalGrnAmount]);
-            // $purchaseOrder->refresh(); // Lấy dữ liệu mới nhất của PO sau khi các PO items đã được cập nhật
+            \Log::info("GRN {$grn->id} total_amount updated to {$totalGrnAmount}.");
+
+            // Lấy dữ liệu mới nhất của PO sau khi các PO items đã được cập nhật
+            $purchaseOrder->refresh(); 
+            // Cần load lại items của purchase order để sum() có dữ liệu mới nhất
+            $purchaseOrder->load('items'); // Đảm bảo mối quan hệ items đã được load lại sau khi refresh
+            
             $totalOrderedQuantity = $purchaseOrder->items->sum('ordered_quantity');
             $totalReceivedQuantity = $purchaseOrder->items->sum('received_quantity');
+            \Log::info("PO {$purchaseOrder->id} status check: Total Ordered Quantity: {$totalOrderedQuantity}, Total Received Quantity: {$totalReceivedQuantity}.");
 
-             if ($totalReceivedQuantity >= $totalOrderedQuantity) {
+            if ($totalReceivedQuantity >= $totalOrderedQuantity) {
                 $purchaseOrder->update(['status' => 'received']);
+                \Log::info("PO {$purchaseOrder->id} status updated to 'received'.");
             } elseif ($totalReceivedQuantity > 0) {
                 $purchaseOrder->update(['status' => 'partially_received']);
+                \Log::info("PO {$purchaseOrder->id} status updated to 'partially_received'.");
+            } else {
+                 \Log::info("PO {$purchaseOrder->id} status remains unchanged (no items received yet).");
             }
 
-
-            // $grn = $grn->load(['items.purchaseOrderItem.variant', 'purchaseOrder', 'user']);
-            \Log::info('Final GRN object before returning from service: ' . json_encode($grn));
+            // $grn = $grn->load(['items.purchaseOrderItem.variant', 'purchaseOrder', 'user']); // Chỉ load khi cần trả về đầy đủ data
+            \Log::info('Final GRN object before returning from service, transaction should commit now: ' . json_encode($grn));
             return $grn;
         });
     }
-
-    /**
-     * Confirm a GRN: set status to confirmed and record inventory transactions.
-     *
-     * @param int $grnId
-     * @return Grn
-     * @throws \Exception
-     */
-    // public function confirm(int $grnId): Grn
-    // {
-    //     return DB::transaction(function () use ($grnId) {
-    //         $grn = Grn::with('items')->findOrFail($grnId);
-    //         if ($grn->status !== 'pending') {
-    //             throw new \Exception('Only pending GRNs can be confirmed.');
-    //         }
-    //                 \Log::info("GRN ID: {$grn->id}, Status: {$grn->status}, Number of items: " . $grn->items->count());
-
-    //         $grn->update(['status' => 'confirmed']);
-    //         $user = Auth::user();
-    //         foreach ($grn->items as $item) {
-    //             // Record inventory transaction for each item
-    //                 $quantityToRecord = $item->received_quantity ?: $item->ordered_quantity;
-    //                 \Log::info("Attempting to record inventory for variant: {$item->variant_id}, quantity: {$quantityToRecord}");
-
-    //             $this->inventoryService->recordInGrn(
-    //                 $item->variant_id,
-    //                 $item->received_quantity ?: $item->ordered_quantity,
-    //                 'GRN',
-    //                 $grn->id,
-    //                 $user->id,
-    //             );
-    //         }
-
-    //         return $grn;
-    //     });
-    // }
-
-
            public function confirm(int $grnId, array $itemsData): Grn
     {
         return DB::transaction(function () use ($grnId, $itemsData) {
@@ -189,19 +264,20 @@ class GrnService
 
                 // Cộng vào tổng tiền mới của GRN
                 $newTotalAmount += $newSubtotal;
-
-            \Log::info("Attempting to record inventory for variant: {$grnItem->variant_id}, quantity: {$actualReceivedQuantity}"); 
-    
-
-                // Ghi nhận giao dịch tồn kho với số lượng thực tế nhận được
-                $this->inventoryService->recordInGrn(
-                    $variant->id,
-                    $actualReceivedQuantity,
-                    $grnItem->unit_cost,
-                    'GRN',
-                    $grn->id,
-                    $user->id,
+                 $this->stockLotService->createLot(
+                    variantId: $variant->id,
+                    quantityIn: $actualReceivedQuantity,
+                    unitCost: $grnItem->unit_cost,
+                    grnItemId: $grnItem->id, // Liên kết trực tiếp với grn_item_id
+                    referenceType: 'GRN', // Hoặc 'App\Models\Grn'
+                    referenceId: $grnItem->id, // Hoặc $grn->id
+                    purchaseDate: $grnItem->created_at,
+                    userId: $user->id,
+                    transactionType: 'IN_GRN',
+                    transactionNotes: "Nhập kho từ GRN #{$grn->id}, Item #{$grnItem->id}"
                 );
+
+              
             }
 
             // Cập nhật trạng thái và tổng tiền mới của GRN

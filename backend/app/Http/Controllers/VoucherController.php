@@ -104,8 +104,14 @@ class VoucherController extends Controller
                 'max_uses' => 'nullable|integer|min:1',
                 'status' => 'nullable|boolean',
             ]);
-             $validated['start_date'] = Carbon::parse($validated['start_date']);
-             $validated['end_date']   = Carbon::parse($validated['end_date']);
+             if (isset($validated['start_date'])) {
+            $validated['start_date'] = Carbon::parse($validated['start_date']);
+        }
+
+        // Kiểm tra và parse end_date nếu nó tồn tại trong validated data
+        if (isset($validated['end_date'])) {
+            $validated['end_date'] = Carbon::parse($validated['end_date']);
+        }
             $voucher = $this->voucherService->update($id, $validated);
 
             if (!$voucher) {

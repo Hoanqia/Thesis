@@ -113,6 +113,7 @@ class ReviewController extends Controller
             $validated = $request->validate([
                 'message' => 'nullable|string|max:2000',
                 'rate'    => 'nullable|integer|between:1,5',
+                'admin_reply' => 'nullable|string|max:2000', // <-- THÊM DÒNG NÀY
             ]);
 
             $review = $this->reviewService->updateReview($id, $validated);

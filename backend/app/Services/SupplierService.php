@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Models\Supplier;
 use App\Models\VariantFromSupplier;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 
 class SupplierService
 {
@@ -20,6 +21,21 @@ class SupplierService
         return Supplier::all();
     }
 
+     public function setDefault(int $id): VariantFromSupplier
+    {
+        $VariantFromSupplierToSetDefault = VariantFromSupplier::findOrFail($id);
+
+        DB::transaction(function () use ($VariantFromSupplierToSetDefault) {
+            VariantFromSupplier::where('id', '!=', $VariantFromSupplierToSetDefault->id)
+                    ->update(['is_default' => false]);
+
+            $VariantFromSupplierToSetDefault->update(['is_default' => true]);
+        });
+
+        $VariantFromSupplierToSetDefault->refresh();
+
+        return $VariantFromSupplierToSetDefault;
+    }
     /**
      * Get a supplier by ID.
      *

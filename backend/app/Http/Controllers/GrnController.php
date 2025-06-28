@@ -92,6 +92,9 @@ class GrnController extends Controller
      */
     public function confirm(int $id,Request $request): JsonResponse
     {   
+
+        \Log::info('Payload confirm GRN:', $request->all());
+
         try {
              // Validate the incoming request data for items
             $request->validate([

@@ -23,6 +23,31 @@ class Variant extends Model
     ];
     protected $table = 'product_variants';
 
+
+
+     public function reservedStocks()
+    {
+        return $this->hasMany(ReservedStock::class);
+    }
+
+
+    public function getAvailableStockForSaleAttribute(): int
+    {
+        // Tính tổng số lượng đang được giữ (chỉ những bản ghi chưa hết hạn)
+        $totalReservedQuantity = $this->reservedStocks()
+                                      ->where('expires_at', '>', now('Asia/Ho_Chi_Minh'))
+                                      ->sum('quantity');
+
+        // Tồn kho khả dụng = Tồn kho vật lý (variant.stock) - Tổng số lượng đã giữ
+        // Đảm bảo không trả về giá trị âm
+        return max(0, $this->stock - $totalReservedQuantity);
+    }
+
+
+
+    public function variant_from_suppliers(){
+        return $this->hasMany(VariantFromSupplier::class);
+    }
     public function product(){
         return $this->belongsTo(Product::class,'product_id');
     }
@@ -33,6 +58,7 @@ class Variant extends Model
     protected $appends = [
         'full_name',
         'image_url',
+        'available_stock_for_sale',
     ];
 
     

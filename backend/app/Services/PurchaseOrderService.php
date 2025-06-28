@@ -166,12 +166,6 @@ class PurchaseOrderService
                 $itemIdsToKeep[] = $item->id;
             }
         }
-
-        // Xóa các mặt hàng không còn trong danh sách mới
-        $itemsToDelete = array_diff($existingItemIds, $itemIdsToKeep);
-        if (!empty($itemsToDelete)) {
-            $purchaseOrder->items()->whereIn('id', $itemsToDelete)->delete();
-        }
     }
 
     /**

@@ -27,6 +27,7 @@ class Order extends Model
         'status', 
         'payment_method', 
         'is_paid',
+        'total_cogs',
     ];
     protected $table = 'orders';
     public function user()

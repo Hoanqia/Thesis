@@ -7,8 +7,8 @@ export interface Review {
   user_name: string; // Thêm trường này
   variant_id: number;
   variant_full_name: string; // Thêm trường này
-  message: string;
-  rate: number;
+  message?: string;
+  rate?: number;
   admin_reply: string | null;
   status: boolean;
   created_at: string;
@@ -28,10 +28,16 @@ export interface UpdateReviewPayload {
 }
 
 export interface AdminReplyPayload {
-  admin_reply: string;
+  admin_reply: string | null;
   status?: boolean;
 }
-
+// NEW: Interface cho payload chỉ cập nhật admin_reply
+export interface AdminUpdateReplyPayload {
+  admin_reply: string | null;
+  message: string | null; // Cần gửi null để backend không báo lỗi
+  rate: number | null;    // Cần gửi null để backend không báo lỗi
+  // status: boolean | null; // Thêm vào nếu hàm update của backend cũng xử lý status và bạn muốn gửi nó
+}
 // Response shapes
 interface ApiResponse<T> {
   message: string;
@@ -123,4 +129,26 @@ export const reviewApi = {
     );
     return response.status === 'success';
   },
+
+   async updateAdminReplyOnly(
+    id: number,
+     adminReplyContent: string | null,
+    // SỬA ĐỔI: Chấp nhận undefined | string | null cho currentMessage
+    currentMessage: string | undefined | null,
+    // SỬA ĐỔI: Chấp nhận undefined | number | null cho currentRate
+    currentRate: number | undefined | null
+  ): Promise<Review> {
+    const payload: AdminUpdateReplyPayload = { // Sử dụng payload mới
+      admin_reply: adminReplyContent,
+      message: currentMessage === undefined ? null : currentMessage,
+        rate: currentRate === undefined ? null : currentRate, // <-- Chuyển undefined thành null
+    };
+    const response = await axiosRequest<ApiResponse<Review>>(
+      `/admin/reviews/${id}`, // Cùng endpoint với adminReply, backend cần xử lý
+      'PATCH', // Method PATCH là phù hợp cho cập nhật một phần
+      payload
+    );
+    return response.data as Review;
+  }
+
 };

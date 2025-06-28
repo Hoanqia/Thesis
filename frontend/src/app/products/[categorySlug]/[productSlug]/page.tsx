@@ -155,7 +155,7 @@ export default function Page() {
   // Thông tin stock của variant đang chọn
   const stockText =
     selectedVariant !== null
-      ? `${selectedVariant.stock} item(s) in stock`
+      ? `${selectedVariant.available_stock_for_sale} item(s) in stock`
       : 'Out of stock';
 
   // Hàm lấy chuỗi hiển thị cho mỗi specValue
@@ -178,7 +178,7 @@ export default function Page() {
   // Hàm xây label cho từng variant: "Màu – Ram <giá trị> – Dung lượng bộ nhớ"
   const getSpecValue = (variant: Variant, specName: string): string | null => {
       // console.log('Check specs:', variant.variant_spec_values.map(sv => sv.specification.name));
-    const found = variant.variant_spec_values.find(
+    const found = variant.variant_spec_values?.find(
       (sv) => sv.specification.name.toLowerCase() === specName.toLowerCase()
     );
     
@@ -211,6 +211,11 @@ export default function Page() {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
     return `${baseUrl}/storage/${path}`;
   }
+
+   const addToCartButtonContent = (!selectedVariant || (selectedVariant.available_stock_for_sale ?? 0) <= 0)
+        ? 'Mặt hàng này đã hết'
+        : 'Thêm vào giỏ hàng';
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -310,7 +315,7 @@ export default function Page() {
           <div className="flex items-center space-x-4">
             <span className="text-2xl font-bold text-gray-900">
               {selectedVariant
-                ? (selectedVariant.price - selectedVariant.discount).toLocaleString('vi-VN', {
+                ? (selectedVariant.price).toLocaleString('vi-VN', {
                     style: 'currency',
                     currency: 'VND',
                   })
@@ -340,14 +345,25 @@ export default function Page() {
                 <button
                   key={variant.id}
                   className={`px-3 py-1 rounded-lg text-sm ${
-                    selectedVariant?.id === variant.id
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
+                                        selectedVariant?.id === variant.id
+                                            ? 'bg-indigo-600 text-white'
+                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                    } ${
+                                        (variant.available_stock_for_sale ?? 0) <= 0
+                                            ? 'opacity-50 cursor-not-allowed'
+                                            : ''
+                                    }`}
                   onClick={() => {
-                    setSelectedVariant(variant);
-                    setMainImage(variant.image ?? null);
-                  }}
+                   // Chỉ cho phép chọn nếu có hàng khả dụng
+                                        if ((variant.available_stock_for_sale ?? 0) > 0) {
+                                            setSelectedVariant(variant);
+                                            // Sử dụng thuộc tính image_url đã có (nếu có) hoặc image
+                                            setMainImage( variant.image ?? null);
+                                        } else {
+                                            alert(`Biến thể "${buildVariantLabel(variant)}" hiện đã hết hàng.`);
+                                        }
+                                    }}
+                                    disabled={(variant.available_stock_for_sale ?? 0) <= 0} // Disable variant button if out of stock
                 >
                   {buildVariantLabel(variant)}
                 </button>
@@ -360,7 +376,7 @@ export default function Page() {
             <div className="space-y-2">
               <h2 className="font-medium">Thông số Biến Thể:</h2>
               <div className="text-gray-700">
-                {selectedVariant.variant_spec_values.map((sv) => (
+                {selectedVariant.variant_spec_values?.map((sv) => (
                   <div key={sv.id} className="flex space-x-2">
                     <span className="font-semibold">{sv.specification.name}:</span>
                     <span>{formatSpecValue(sv)}</span>
@@ -371,8 +387,14 @@ export default function Page() {
           )}
 
           {/* Button Add to Cart */}
-          <button onClick={handleAdd} className="w-full py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition">
-            Add to Cart
+          <button onClick={handleAdd}  
+           disabled={!selectedVariant || (selectedVariant.available_stock_for_sale ?? 0) <= 0} // Sửa lỗi ở đây
+          className={`w-full py-3 rounded-lg transition ${
+                            selectedVariant && (selectedVariant.available_stock_for_sale ?? 0) > 0
+                                ? 'bg-black text-white hover:bg-gray-800'
+                                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        }`}>
+            {addToCartButtonContent}
           </button>
         </div>
 

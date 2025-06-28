@@ -35,8 +35,9 @@ export function ProductCard({ product ,categorySlug}: ProductCardProps) {
   const [variants, setVariants] = useState<Variant[]>([]);
   const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null);
 
-
-
+  const MAX_VARIANTS_DISPLAY = 3;
+  const variantsToDisplay = variants.slice(0, MAX_VARIANTS_DISPLAY);
+  const hasMoreVariants = variants.length > MAX_VARIANTS_DISPLAY;
   const handleAddToCart = async () => {
   if (!selectedVariant) {
     console.error("Chưa chọn biến thể để thêm vào giỏ hàng.");
@@ -142,7 +143,7 @@ export function ProductCard({ product ,categorySlug}: ProductCardProps) {
     specName: string
   ): string | null {
     // Vì Variant đã có field variant_spec_values: SpecValue[]
-    const specObj: SpecValue | undefined = variant.variant_spec_values.find(
+    const specObj: SpecValue | undefined = variant.variant_spec_values?.find(
       (sv: SpecValue) =>
         sv.specification.name.toLowerCase() === specName.toLowerCase()
     );
@@ -248,7 +249,7 @@ export function ProductCard({ product ,categorySlug}: ProductCardProps) {
             : "Đang tải giá..."}
         </p>
 
-        {/* Dãy nút chọn variant, hiển thị “Màu – RAM – Dung lượng bộ nhớ” */}
+        {/* Dãy nút chọn variant, hiển thị “Màu – RAM – Dung lượng bộ nhớ”
         <div className="flex flex-wrap gap-2 mt-3">
           {variants.map((variant) => (
             <Button
@@ -262,8 +263,34 @@ export function ProductCard({ product ,categorySlug}: ProductCardProps) {
               {buildVariantLabel(variant, category)}
             </Button>
           ))}
-        </div>
+        </div> */}
 
+        {/* Dãy nút chọn variant, hiển thị “Màu – RAM – Dung lượng bộ nhớ” */}
+        {/* Sử dụng height cố định và overflow-hidden */}
+        <div className="flex flex-wrap gap-2 mt-3 justify-center h-[120px] overflow-hidden items-start">
+          {variantsToDisplay.map((variant) => (
+            <Button
+              key={variant.id}
+              size="sm"
+              variant={
+                selectedVariant?.id === variant.id ? "default" : "outline"
+              }
+              onClick={() => setSelectedVariant(variant)}
+            >
+              {buildVariantLabel(variant, category)}
+            </Button>
+          ))}
+          {/* Nút "..." nếu có nhiều variant hơn số hiển thị tối đa */}
+          {hasMoreVariants && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onImageClick} // Có thể dẫn đến trang chi tiết sản phẩm để người dùng xem tất cả variant
+            >
+              ...
+            </Button>
+          )}
+        </div>
          {/* —— Phần icon chồng lên góc dưới bên phải —— */}
         <div className="absolute top-2 right-2 flex flex-col items-center gap-1">
           <button

@@ -4,11 +4,151 @@
 namespace App\Services;
 
 use App\Models\Variant;
+use App\Models\VariantFromSupplier;
+use App\Models\Supplier;
+
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException; // Thêm vào để sử dụng exception rõ ràng hơn
 
 class PricingService
-{
+{   
+
+    
+    /**
+     * Đặt giá bán cho các biến thể dựa trên giá mua từ một VariantFromSupplier CỤ THỂ và tỷ lệ lợi nhuận mục tiêu.
+     * Cần truyền variant_id và variant_from_supplier_id để xác định nguồn giá mua.
+     *
+     * @param array $variantsData Mảng các đối tượng { variant_id: int, variant_from_supplier_id: int }.
+     * @param float $targetProfitPercent Tỷ lệ lợi nhuận mới mong muốn (ví dụ: 25 cho 25%).
+     * @param string|null $psychologicalStrategy Tùy chọn chiến lược giá tâm lý (e.g., 'charm_vnd_990').
+     * @return int Số lượng variant đã được cập nhật thành công.
+     * @throws InvalidArgumentException
+     */
+    public function setPricesByTargetProfitAndChosenSupplier(
+        array $variantsData,
+        float $targetProfitPercent,
+        ?string $psychologicalStrategy = "charm_vnd_990"
+    ): int {
+        if (empty($variantsData)) {
+            throw new InvalidArgumentException("Variants data array cannot be empty.");
+        }
+        if ($targetProfitPercent < -100) {
+            throw new InvalidArgumentException("Target profit percentage cannot be less than -100%.");
+        }
+
+        return DB::transaction(function () use ($variantsData, $targetProfitPercent, $psychologicalStrategy) {
+            $updatedCount = 0;
+
+            foreach ($variantsData as $data) {
+                $variantId = $data['variant_id'] ?? null;
+                $variantFromSupplierId = $data['variant_from_supplier_id'] ?? null;
+
+                if (!$variantId || !$variantFromSupplierId) {
+                    continue; // Bỏ qua nếu dữ liệu không hợp lệ
+                }
+
+                // Lấy Variant và VariantFromSupplier liên quan
+                // Sử dụng eager loading để tránh N+1 query
+                $variant = Variant::where('id', $variantId)->lockForUpdate()->first();
+                $variantFromSupplier = VariantFromSupplier::find($variantFromSupplierId);
+
+                if (!$variant || !$variantFromSupplier || $variantFromSupplier->variant_id !== $variant->id) {
+                    continue; // Bỏ qua nếu không tìm thấy variant hoặc variant_from_supplier không khớp
+                }
+
+                $purchasePrice = (float) $variantFromSupplier->current_purchase_price;
+
+                // Tính toán giá gợi ý dựa trên giá mua từ nhà cung cấp được chọn và tỷ lệ lợi nhuận mục tiêu
+                $suggestedPrice = $this->calculateSuggestedPrice($purchasePrice, $targetProfitPercent);
+
+                $finalPriceToSet = $suggestedPrice;
+
+                if ($psychologicalStrategy) {
+                    $finalPriceToSet = $this->calculatePsychologicalPrice($suggestedPrice, $psychologicalStrategy);
+                }
+
+                // Đảm bảo giá cuối cùng không âm và làm tròn
+                $finalPriceToSet = max(0.0, round($finalPriceToSet, 2));
+
+                // Cập nhật giá bán, profit_percent và average_cost của Variant
+                // average_cost được cập nhật theo giá mua từ nhà cung cấp được chọn
+                $variant->update([
+                    'price' => $finalPriceToSet,
+                    'profit_percent' => $targetProfitPercent,
+                    'average_cost' => $purchasePrice, // Cập nhật average_cost dựa trên giá mua từ nhà cung cấp được chọn
+                ]);
+                $updatedCount++;
+            }
+            return $updatedCount;
+        });
+    }
+
+    /**
+     * Cập nhật lại giá bán của các biến thể dựa trên giá mua từ một VariantFromSupplier CỤ THỂ và profit_percent hiện tại của Variant.
+     * Cần truyền variant_id và variant_from_supplier_id để xác định nguồn giá mua.
+     *
+     * @param array $variantsData Mảng các đối tượng { variant_id: int, variant_from_supplier_id: int }.
+     * @param string|null $psychologicalStrategy Tùy chọn chiến lược giá tâm lý (e.g., 'charm_vnd_990').
+     * @return int Số lượng variant đã được cập nhật thành công.
+     * @throws InvalidArgumentException
+     */
+    public function recalculatePricesByChosenSupplierCost(
+        array $variantsData,
+        ?string $psychologicalStrategy = "charm_vnd_990"
+    ): int {
+        if (empty($variantsData)) {
+            throw new InvalidArgumentException("Variants data array cannot be empty.");
+        }
+
+        return DB::transaction(function () use ($variantsData, $psychologicalStrategy) {
+            $updatedCount = 0;
+
+            foreach ($variantsData as $data) {
+                $variantId = $data['variant_id'] ?? null;
+                $variantFromSupplierId = $data['variant_from_supplier_id'] ?? null;
+
+                if (!$variantId || !$variantFromSupplierId) {
+                    continue; // Bỏ qua nếu dữ liệu không hợp lệ
+                }
+
+                // Lấy Variant và VariantFromSupplier liên quan
+                $variant = Variant::where('id', $variantId)->lockForUpdate()->first();
+                $variantFromSupplier = VariantFromSupplier::find($variantFromSupplierId);
+
+                if (!$variant || !$variantFromSupplier || $variantFromSupplier->variant_id !== $variant->id) {
+                    continue; // Bỏ qua nếu không tìm thấy variant hoặc variant_from_supplier không khớp
+                }
+
+                $purchasePrice = (float) $variantFromSupplier->current_purchase_price;
+                $currentProfitPercent = (float) $variant->profit_percent;
+
+                // Tính giá gợi ý dựa trên giá mua từ nhà cung cấp và profit_percent hiện tại của variant
+                $suggestedPrice = $this->calculateSuggestedPrice($purchasePrice, $currentProfitPercent);
+
+                $finalPriceToSet = $suggestedPrice;
+
+                if ($psychologicalStrategy) {
+                    $finalPriceToSet = $this->calculatePsychologicalPrice($suggestedPrice, $psychologicalStrategy);
+                }
+
+                // Đảm bảo giá cuối cùng không âm và làm tròn
+                $finalPriceToSet = max(0.0, round($finalPriceToSet, 2));
+
+                // Cập nhật giá bán và average_cost của Variant
+                // profit_percent không thay đổi vì chúng ta tái tính dựa trên nó
+                $variant->update([
+                    'price' => $finalPriceToSet,
+                    'average_cost' => $purchasePrice, // Cập nhật average_cost dựa trên giá mua từ nhà cung cấp được chọn
+                ]);
+                $updatedCount++;
+            }
+            return $updatedCount;
+        });
+    }
+
+
+
+
     /**
      * Tính toán giá bán gợi ý dựa trên giá vốn bình quân và tỷ lệ lợi nhuận mục tiêu.
      *

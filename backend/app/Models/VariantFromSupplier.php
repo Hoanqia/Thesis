@@ -20,6 +20,7 @@ class VariantFromSupplier extends Model
         'variant_supplier_sku',
         'current_purchase_price',
         'is_active',
+        'is_default',
     ];
 
     // Các thuộc tính nên được chuyển đổi sang kiểu dữ liệu cụ thể

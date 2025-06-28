@@ -1,36 +1,47 @@
+// frontend\src\app\admin\price-management\page.tsx
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import BulkPriceUpdateForm from '@/features/variants/components/BulkPriceUpdateForm';
+import PriceManagementForm from '@/features/variants/components/BulkPriceUpdateForm'; // Đổi tên file này thành PriceManagementForm.tsx
 import ProductTable from '@/features/variants/components/ProductTable';
-import { Variant, variantApi } from '@/features/variants/api/variantApi';
+import { Variant, variantApi } from '@/features/variants/api/variantApi'; // Import VariantFromSupplier
+import supplierApi, { VariantFromSupplier } from '@/features/suppliers/api/supplierApi';
 import { Category, fetchCategories } from '@/features/categories/api/categoryApi';
-import axios from 'axios'; // For axios error handling
+import axios from 'axios';
+import { toast } from 'react-hot-toast'; // Giả sử bạn sử dụng react-hot-toast
 
-export default function BulkPriceUpdatePage() {
+export default function PriceManagementPage() { // Đổi tên component
   const [allVariants, setAllVariants] = useState<Variant[]>([]);
   const [filteredVariants, setFilteredVariants] = useState<Variant[]>([]);
   const [selectedVariantIds, setSelectedVariantIds] = useState<Set<number>>(new Set());
   const [profitPercentInput, setProfitPercentInput] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
-  const [loadingUpdate, setLoadingUpdate] = useState<boolean>(false); // New state for update button loading
+  const [loadingUpdate, setLoadingUpdate] = useState<boolean>(false);
 
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedPsychologicalStrategy, setSelectedPsychologicalStrategy] = useState<string>(''); // New state for psychological strategy
+  const [selectedPsychologicalStrategy, setSelectedPsychologicalStrategy] = useState<string>('');
 
   // Helper for consistent API error handling
   const handleApiError = useCallback((error: any, defaultMessage: string) => {
     console.error("API Error:", error);
     if (axios.isAxiosError(error) && error.response) {
       if (error.response.data.errors) {
+        let errorMessages: string[] = [];
         Object.values(error.response.data.errors).forEach((errMsgs: any) => {
           if (Array.isArray(errMsgs)) {
-          } 
+            errorMessages = errorMessages.concat(errMsgs);
+          }
         });
+        toast.error(errorMessages.join(', ') || defaultMessage);
+      } else if (error.response.data.message) {
+        toast.error(error.response.data.message);
+      } else {
+        toast.error(defaultMessage);
       }
     } else {
+      toast.error(defaultMessage);
     }
   }, []);
 
@@ -40,18 +51,36 @@ export default function BulkPriceUpdatePage() {
     try {
       const fetchedVariants = await variantApi.fetchAllVariants();
 
-      const transformedVariants = fetchedVariants.map(v => ({
-        ...v,
-        // Ensure conversion from string to number if API returns string
-        price: typeof v.price === 'string' ? parseFloat(v.price) : v.price,
-        discount: typeof v.discount === 'string' ? parseFloat(v.discount) : v.discount,
-        average_cost: typeof v.average_cost === 'string' ? parseFloat(v.average_cost) : v.average_cost,
-        profit_percent: typeof v.profit_percent === 'string' ? parseFloat(v.profit_percent) : v.profit_percent, // Ensure profit_percent is number
-        product: v.product ? {
-          ...v.product,
-          category: v.product.category ? { ...v.product.category } : undefined
-        } : undefined
-      }));
+      const transformedVariants = fetchedVariants.map(v => {
+        let defaultSupplierId: number | undefined;
+        let defaultSupplierPrice: number | undefined;
+
+        // Ưu tiên chọn VFS có is_default = true
+        // Nếu không có, chọn VFS có current_purchase_price thấp nhất
+        // Nếu vẫn không có, không chọn gì cả
+        if (v.variant_from_suppliers && v.variant_from_suppliers.length > 0) {
+          const defaultVFS = v.variant_from_suppliers.find(vfs => vfs.is_default === true) ||
+                             v.variant_from_suppliers.reduce((prev, current) =>
+                                (prev.current_purchase_price < current.current_purchase_price) ? prev : current); // Chọn giá thấp nhất
+
+          defaultSupplierId = defaultVFS?.id;
+          defaultSupplierPrice = defaultVFS?.current_purchase_price;
+        }
+
+        return {
+          ...v,
+          price: typeof v.price === 'string' ? parseFloat(v.price) : v.price,
+          discount: typeof v.discount === 'string' ? parseFloat(v.discount) : v.discount,
+          average_cost: typeof v.average_cost === 'string' ? parseFloat(v.average_cost) : v.average_cost,
+          profit_percent: typeof v.profit_percent === 'string' ? parseFloat(v.profit_percent) : v.profit_percent,
+          product: v.product ? {
+            ...v.product,
+            category: v.product.category ? { ...v.product.category } : undefined
+          } : undefined,
+          selected_supplier_id: defaultSupplierId, // Lưu ID của VFS được chọn
+          selected_supplier_price: defaultSupplierPrice, // Lưu giá của VFS được chọn
+        };
+      });
 
       setAllVariants(transformedVariants);
       setFilteredVariants(transformedVariants); // Initialize filtered variants
@@ -111,7 +140,7 @@ export default function BulkPriceUpdatePage() {
   // Re-filter variants whenever search term or selected category changes
   useEffect(() => {
     handleSearchAndFilter();
-  }, [searchTerm, selectedCategory, handleSearchAndFilter, allVariants]); // Add allVariants to dependencies for initial filtering
+  }, [searchTerm, selectedCategory, handleSearchAndFilter, allVariants]);
 
   // Logic to check if all filtered variants are selected
   const isAllSelected = useMemo(() => {
@@ -148,25 +177,81 @@ export default function BulkPriceUpdatePage() {
     setProfitPercentInput(value);
   }, []);
 
-  // --- NEW: Handle "Cập nhật giá cho {selectedVariantCount} sản phẩm" button (Đặt giá theo gốc mới) ---
+  // --- NEW: Xử lý khi người dùng chọn một VariantFromSupplier làm nguồn giá mua ---
+  const handleSelectDefaultSupplier = useCallback(async (variantId: number, variantFromSupplierId: number) => {
+    try {
+        // Cập nhật state cục bộ ngay lập tức để UI phản hồi nhanh
+        setFilteredVariants(prevVariants => prevVariants.map(v => {
+            if (v.id === variantId) {
+                const selectedVFS = v.variant_from_suppliers?.find(vfs => vfs.id === variantFromSupplierId);
+                // Tạo một bản sao của variant và cập nhật các thuộc tính
+                // Đảm bảo chỉ có một is_default là true trong mảng variant_from_suppliers
+                const updatedVariantFromSuppliers = v.variant_from_suppliers?.map(vfs => ({
+                    ...vfs,
+                    is_default: vfs.id === variantFromSupplierId ? true : false
+                }));
+
+                return {
+                    ...v,
+                    selected_supplier_id: variantFromSupplierId,
+                    selected_supplier_price: selectedVFS?.current_purchase_price,
+                    variant_from_suppliers: updatedVariantFromSuppliers // Cập nhật mảng VFS
+                };
+            }
+            return v;
+        }));
+
+        // Gửi yêu cầu lên backend để lưu lựa chọn mặc định
+        await supplierApi.setDefaultVariantFromSupplier(variantFromSupplierId);
+        toast.success("Đã chọn nguồn giá mua mặc định.");
+    } catch (error) {
+        handleApiError(error, "Không thể đặt nguồn giá mua mặc định.");
+        // Nếu lỗi, bạn có thể cân nhắc revert lại UI state hoặc re-fetch dữ liệu
+        // Để đơn giản, tôi sẽ re-fetch lại toàn bộ dữ liệu để đảm bảo đồng bộ
+        loadVariants();
+    }
+  }, [handleApiError, loadVariants]);
+
+
+  // --- NEW: Handle "Cập nhật giá cho {selectedVariantCount} sản phẩm" (Đặt giá theo lợi nhuận mục tiêu và nguồn FIFO) ---
   const handleSetPricesByTargetProfit = useCallback(async () => {
     if (selectedVariantIds.size === 0) {
+      toast.error("Vui lòng chọn ít nhất một sản phẩm để cập nhật giá.");
       return;
     }
     const parsedProfit = parseFloat(profitPercentInput);
-    if (isNaN(parsedProfit) || parsedProfit < -100) { // Allow negative profit but not below -100
+    if (isNaN(parsedProfit) || parsedProfit < -100) {
+      toast.error("Phần trăm lợi nhuận không hợp lệ. Vui lòng nhập số.");
       return;
     }
 
     setLoadingUpdate(true);
     try {
-      const response = await variantApi.setPricesByTargetProfit(
-        Array.from(selectedVariantIds),
-        parsedProfit,
-        selectedPsychologicalStrategy
-      );
-      // Re-fetch data to reflect updated prices and profit_percent from backend
-      await loadVariants();
+      const variantsToUpdate = Array.from(selectedVariantIds).map(variantId => {
+        const variant = filteredVariants.find(v => v.id === variantId);
+        if (!variant || !variant.selected_supplier_id) {
+          console.warn(`Variant ${variantId} selected but no default supplier variant found or selected. Skipping.`);
+          return null;
+        }
+        return { variant_id: variantId, variant_from_supplier_id: variant.selected_supplier_id };
+      }).filter(Boolean); // Lọc bỏ các null
+
+      if (variantsToUpdate.length === 0) {
+        toast.error("Không có sản phẩm nào đủ điều kiện để cập nhật giá (chưa chọn nhà cung cấp).");
+        setLoadingUpdate(false);
+        return;
+      }
+
+// Gom các tham số vào một đối tượng payload
+      const payloadForSetProfit = {
+        variants: variantsToUpdate as { variant_id: number; variant_from_supplier_id: number; }[],
+        profit_percent: parsedProfit,
+        psychological_strategy: selectedPsychologicalStrategy,
+      };
+
+      const response = await variantApi.setPricesByTargetProfitFromSupplier(payloadForSetProfit); // TRUYỀN DUY NHẤT ĐỐI TƯỢNG PAYLOAD
+      toast.success(response.message || `Đã cập nhật giá cho ${response.data} sản phẩm.`);
+      await loadVariants(); // Re-fetch data to reflect updated prices and profit_percent from backend
       setSelectedVariantIds(new Set()); // Clear selection
       setProfitPercentInput(''); // Reset input
     } catch (error) {
@@ -174,29 +259,48 @@ export default function BulkPriceUpdatePage() {
     } finally {
       setLoadingUpdate(false);
     }
-  }, [selectedVariantIds, profitPercentInput, selectedPsychologicalStrategy, loadVariants, handleApiError]);
+  }, [selectedVariantIds, profitPercentInput, selectedPsychologicalStrategy, filteredVariants, loadVariants, handleApiError]);
 
-  // --- NEW: Handle "Cập nhật giá bán theo giá gốc mới ({selectedVariantCount})" button ---
+  // --- NEW: Handle "Cập nhật giá bán theo giá gốc mới ({selectedVariantCount})" (Sử dụng nguồn FIFO đã chọn) ---
   const handleRecalculatePricesByCurrentCost = useCallback(async () => {
     if (selectedVariantIds.size === 0) {
+      toast.error("Vui lòng chọn ít nhất một sản phẩm để cập nhật giá.");
       return;
     }
 
     setLoadingUpdate(true);
     try {
-      const response = await variantApi.recalculatePricesByCurrentCost(
-        Array.from(selectedVariantIds),
-        selectedPsychologicalStrategy
-      );
-      // Re-fetch data to reflect updated prices from backend
-      await loadVariants();
+      const variantsToUpdate = Array.from(selectedVariantIds).map(variantId => {
+        const variant = filteredVariants.find(v => v.id === variantId);
+        if (!variant || !variant.selected_supplier_id) {
+          console.warn(`Variant ${variantId} selected but no default supplier variant found or selected. Skipping.`);
+          return null;
+        }
+        return { variant_id: variantId, variant_from_supplier_id: variant.selected_supplier_id };
+      }).filter(Boolean); // Lọc bỏ các null
+
+      if (variantsToUpdate.length === 0) {
+        toast.error("Không có sản phẩm nào đủ điều kiện để cập nhật giá (chưa chọn nhà cung cấp).");
+        setLoadingUpdate(false);
+        return;
+      }
+
+      // Gom các tham số vào một đối tượng payload
+      const payloadForRecalculate = {
+        variants: variantsToUpdate as { variant_id: number; variant_from_supplier_id: number; }[],
+        psychological_strategy: selectedPsychologicalStrategy,
+      };
+
+      const response = await variantApi.recalculatePricesByChosenSupplierCost(payloadForRecalculate); // TRUYỀN DUY NHẤT ĐỐI TƯỢNG PAYLOAD
+      toast.success(response.message || `Đã cập nhật giá bán theo giá gốc mới cho ${response.data} sản phẩm.`);
+      await loadVariants(); // Re-fetch data to reflect updated prices from backend
       setSelectedVariantIds(new Set()); // Clear selection
     } catch (error) {
       handleApiError(error, "Có lỗi xảy ra khi cập nhật giá bán theo giá gốc mới.");
     } finally {
       setLoadingUpdate(false);
     }
-  }, [selectedVariantIds, selectedPsychologicalStrategy, loadVariants, handleApiError]);
+  }, [selectedVariantIds, selectedPsychologicalStrategy, filteredVariants, loadVariants, handleApiError]);
 
 
   if (loading) {
@@ -209,25 +313,23 @@ export default function BulkPriceUpdatePage() {
 
   return (
     <div className="container mx-auto p-6 bg-gray-50 min-h-screen">
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">Quản lý giá sản phẩm hàng loạt</h1>
+      <h1 className="text-3xl font-bold text-gray-900 mb-6">Quản lý giá sản phẩm theo FIFO</h1> {/* Đổi tiêu đề */}
 
-      <BulkPriceUpdateForm
+      <PriceManagementForm // Đổi tên component form
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
         selectedCategory={selectedCategory}
-        // setCategories={setCategories} // Pass setCategories if you want the form to manage categories directly
         setSelectedCategory={setSelectedCategory}
         handleSearchAndFilter={handleSearchAndFilter}
         profitPercentInput={profitPercentInput}
         handleProfitPercentInputChange={handleProfitPercentInputChange}
-        // Pass the new API handling functions
         handleSetPricesByTargetProfit={handleSetPricesByTargetProfit}
         handleRecalculatePricesByCurrentCost={handleRecalculatePricesByCurrentCost}
         selectedVariantCount={selectedVariantIds.size}
-        categories={categories.map(cat => cat.name)} // Pass only category names to the form
+        categories={categories.map(cat => cat.name)}
         selectedPsychologicalStrategy={selectedPsychologicalStrategy}
         setSelectedPsychologicalStrategy={setSelectedPsychologicalStrategy}
-        loadingUpdate={loadingUpdate} // Pass loading state to disable buttons
+        loadingUpdate={loadingUpdate}
       />
 
       <ProductTable
@@ -237,11 +339,12 @@ export default function BulkPriceUpdatePage() {
         toggleSelectAll={toggleSelectAll}
         toggleSelectVariant={toggleSelectVariant}
         profitPercentInput={profitPercentInput}
+        onSelectDefaultSupplier={handleSelectDefaultSupplier} // TRUYỀN PROP MỚI
       />
     </div>
   );
 }
-// // app/admin/bulk-price-update/page.tsx
+
 // 'use client';
 
 // import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -249,60 +352,74 @@ export default function BulkPriceUpdatePage() {
 // import ProductTable from '@/features/variants/components/ProductTable';
 // import { Variant, variantApi } from '@/features/variants/api/variantApi';
 // import { Category, fetchCategories } from '@/features/categories/api/categoryApi';
+// import axios from 'axios'; // For axios error handling
+
 // export default function BulkPriceUpdatePage() {
 //   const [allVariants, setAllVariants] = useState<Variant[]>([]);
 //   const [filteredVariants, setFilteredVariants] = useState<Variant[]>([]);
 //   const [selectedVariantIds, setSelectedVariantIds] = useState<Set<number>>(new Set());
 //   const [profitPercentInput, setProfitPercentInput] = useState<string>('');
-//   // const [profitPercentChange, setProfitPercentChange] = useState<number | null>(null); // <-- Xóa state này
 //   const [loading, setLoading] = useState<boolean>(true);
+//   const [loadingUpdate, setLoadingUpdate] = useState<boolean>(false); // New state for update button loading
 
 //   const [searchTerm, setSearchTerm] = useState<string>('');
 //   const [selectedCategory, setSelectedCategory] = useState<string>('');
-//   const [categories, setCategories] = useState<Category[]>([]); // <-- Thay đổi kiểu dữ liệu thành Category[]
+//   const [categories, setCategories] = useState<Category[]>([]);
+//   const [selectedPsychologicalStrategy, setSelectedPsychologicalStrategy] = useState<string>(''); // New state for psychological strategy
 
-//   // Hàm load dữ liệu variants ban đầu
+//   // Helper for consistent API error handling
+//   const handleApiError = useCallback((error: any, defaultMessage: string) => {
+//     console.error("API Error:", error);
+//     if (axios.isAxiosError(error) && error.response) {
+//       if (error.response.data.errors) {
+//         Object.values(error.response.data.errors).forEach((errMsgs: any) => {
+//           if (Array.isArray(errMsgs)) {
+//           } 
+//         });
+//       }
+//     } else {
+//     }
+//   }, []);
+
+//   // Function to load initial variant data
 //   const loadVariants = useCallback(async () => {
 //     setLoading(true);
 //     try {
 //       const fetchedVariants = await variantApi.fetchAllVariants();
 
-//        const transformedVariants = fetchedVariants.map(v => ({
-//           ...v,
-//           // Đảm bảo chuyển đổi string sang number nếu API trả về string
-//           price: typeof v.price === 'string' ? parseFloat(v.price) : v.price,
-//           discount: typeof v.discount === 'string' ? parseFloat(v.discount) : v.discount,
-//           average_cost: typeof v.average_cost === 'string' ? parseFloat(v.average_cost) : v.average_cost,
-//           product: v.product ? {
-//             ...v.product,
-//             category: v.product.category ? { ...v.product.category } : undefined
-//           } : undefined
+//       const transformedVariants = fetchedVariants.map(v => ({
+//         ...v,
+//         // Ensure conversion from string to number if API returns string
+//         price: typeof v.price === 'string' ? parseFloat(v.price) : v.price,
+//         discount: typeof v.discount === 'string' ? parseFloat(v.discount) : v.discount,
+//         average_cost: typeof v.average_cost === 'string' ? parseFloat(v.average_cost) : v.average_cost,
+//         profit_percent: typeof v.profit_percent === 'string' ? parseFloat(v.profit_percent) : v.profit_percent, // Ensure profit_percent is number
+//         product: v.product ? {
+//           ...v.product,
+//           category: v.product.category ? { ...v.product.category } : undefined
+//         } : undefined
 //       }));
 
 //       setAllVariants(transformedVariants);
-//       setFilteredVariants(transformedVariants);
+//       setFilteredVariants(transformedVariants); // Initialize filtered variants
 
-      
 //     } catch (error) {
-//       console.error("Failed to fetch variants:", error);
-//       alert("Không thể tải dữ liệu sản phẩm. Vui lòng thử lại sau.");
+//       handleApiError(error, "Không thể tải dữ liệu sản phẩm.");
 //     } finally {
 //       setLoading(false);
 //     }
-//   }, []);
+//   }, [handleApiError]);
 
 
-//    // Hàm load dữ liệu categories
+//   // Function to load categories data
 //   const loadCategories = useCallback(async () => {
 //     try {
 //       const fetchedCategories = await fetchCategories();
 //       setCategories(fetchedCategories);
 //     } catch (error) {
-//       console.error("Failed to fetch categories:", error);
-//       // Bạn có thể xử lý lỗi ở đây, ví dụ hiển thị một thông báo
+//       handleApiError(error, "Không thể tải dữ liệu danh mục.");
 //     }
-//   }, []);
-
+//   }, [handleApiError]);
 
 //   // Fetch data on client when component mounts
 //   useEffect(() => {
@@ -310,13 +427,46 @@ export default function BulkPriceUpdatePage() {
 //     loadCategories();
 //   }, [loadVariants, loadCategories]);
 
-//   // Logic kiểm tra xem tất cả các variants đã lọc có được chọn không
+//   // Apply search and filter logic
+//   const handleSearchAndFilter = useCallback(() => {
+//     const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
+//     const filtered = allVariants.filter(variant => {
+//       const variantCategoryName = variant.product?.category?.name;
+
+//       const matchesSearch =
+//         variant.sku.toLowerCase().includes(lowerCaseSearchTerm) ||
+//         (variant.product?.name && variant.product.name.toLowerCase().includes(lowerCaseSearchTerm)) ||
+//         (variant.full_name && variant.full_name.toLowerCase().includes(lowerCaseSearchTerm)) ||
+//         (variantCategoryName && variantCategoryName.toLowerCase().includes(lowerCaseSearchTerm)) ||
+//         (variant.variant_spec_values?.some(sv => {
+//           const specValue = sv.value_text || sv.spec_options?.value;
+//           return (
+//             (sv.specification.name && sv.specification.name.toLowerCase().includes(lowerCaseSearchTerm)) ||
+//             (specValue && specValue.toLowerCase().includes(lowerCaseSearchTerm))
+//           );
+//         }) || false);
+
+//       const matchesCategory = selectedCategory === '' || (variantCategoryName === selectedCategory);
+
+//       return matchesSearch && matchesCategory;
+//     });
+
+//     setFilteredVariants(filtered);
+//     setSelectedVariantIds(new Set()); // Reset selection when filter changes
+//   }, [allVariants, searchTerm, selectedCategory]);
+
+//   // Re-filter variants whenever search term or selected category changes
+//   useEffect(() => {
+//     handleSearchAndFilter();
+//   }, [searchTerm, selectedCategory, handleSearchAndFilter, allVariants]); // Add allVariants to dependencies for initial filtering
+
+//   // Logic to check if all filtered variants are selected
 //   const isAllSelected = useMemo(() => {
 //     if (filteredVariants.length === 0) return false;
 //     return filteredVariants.every((variant) => selectedVariantIds.has(variant.id));
 //   }, [filteredVariants, selectedVariantIds]);
 
-//   // Toggle chọn/bỏ chọn một variant
+//   // Toggle select/deselect a single variant
 //   const toggleSelectVariant = useCallback((id: number) => {
 //     setSelectedVariantIds((prevSelected) => {
 //       const newSet = new Set(prevSelected);
@@ -329,7 +479,7 @@ export default function BulkPriceUpdatePage() {
 //     });
 //   }, []);
 
-//   // Toggle chọn/bỏ chọn tất cả các variants đã lọc
+//   // Toggle select/deselect all filtered variants
 //   const toggleSelectAll = useCallback(() => {
 //     if (isAllSelected) {
 //       setSelectedVariantIds(new Set());
@@ -339,133 +489,62 @@ export default function BulkPriceUpdatePage() {
 //     }
 //   }, [isAllSelected, filteredVariants]);
 
-//   // Xử lý khi người dùng ấn nút "Cập nhật giá" (dùng % lợi nhuận mới)
-//   const handleApplyChanges = useCallback(async (e: React.FormEvent) => {
-//     e.preventDefault();
-//     const parsedProfit = parseFloat(profitPercentInput);
-
-//     if (selectedVariantIds.size === 0) {
-//       alert("Vui lòng chọn ít nhất một sản phẩm để cập nhật.");
-//       return;
-//     }
-//     if (isNaN(parsedProfit) || parsedProfit < 0) {
-//       alert("Phần trăm lợi nhuận không hợp lệ. Vui lòng nhập một số dương.");
-//       return;
-//     }
-
-//     setLoading(true);
-//     try {
-//       const updatePromises = Array.from(selectedVariantIds).map(async (id) => {
-//         // Gửi profit_percent mới lên backend để backend tính toán và lưu giá
-//         const dataToUpdate = {
-//           profit_percent: parsedProfit,
-//           // Không cần gửi price ở đây vì backend sẽ tính
-//         };
-//         // Giả sử API update của bạn sẽ trả về variant đã được cập nhật với giá mới
-//         return variantApi.update(id, dataToUpdate);
-//       });
-
-//       await Promise.all(updatePromises); // Chờ tất cả các cập nhật hoàn tất
-
-//       setSelectedVariantIds(new Set()); // Bỏ chọn tất cả sau khi cập nhật
-//       setProfitPercentInput(''); // Xóa giá trị input
-
-//       // Sau khi cập nhật thành công, re-fetch dữ liệu mới nhất từ backend
-//       await loadVariants();
-//       alert(`Đã cập nhật lợi nhuận cho ${updatePromises.length} sản phẩm. Giá mới đã được tính toán và lưu tại backend.`);
-//     } catch (error) {
-//       console.error("Lỗi khi cập nhật lợi nhuận:", error);
-//       alert("Có lỗi xảy ra khi cập nhật lợi nhuận. Vui lòng kiểm tra console để biết thêm chi tiết.");
-//     } finally {
-//       setLoading(false);
-//     }
-//   }, [selectedVariantIds, profitPercentInput, loadVariants]); // Thêm loadVariants vào dependency
-
-//   // Hàm xử lý khi người dùng nhấn nút "Cập nhật giá bán theo giá gốc mới"
-//   // HÀM NÀY SẼ ĐƯỢC XÓA HOẶC TÍCH HỢP VÀO handleApplyChanges nếu logic hoàn toàn giống nhau
-//   // Trong trường hợp này, tôi sẽ xóa nó để tránh trùng lặp
-//   const handleUpdatePriceByAverageCost = useCallback(async () => {
-//     if (selectedVariantIds.size === 0) {
-//       alert("Vui lòng chọn ít nhất một sản phẩm để cập nhật.");
-//       return;
-//     }
-
-//     setLoading(true);
-//     try {
-//       const updatePromises = Array.from(selectedVariantIds).map(async (id) => {
-//         // Gửi yêu cầu backend tính toán lại giá dựa trên average_cost và profit_percent hiện tại
-//         // Giả sử backend có một endpoint hoặc logic riêng cho việc này,
-//         // hoặc bạn chỉ cần gọi update mà không cần gửi profit_percent mới nếu nó đã có sẵn
-//         const variantToUpdate = allVariants.find(v => v.id === id);
-//         if (!variantToUpdate) return; // Bỏ qua nếu không tìm thấy variant
-
-//         // Gửi một request với profit_percent hiện tại để backend tính lại giá
-//         // Hoặc một endpoint chuyên dụng để "recalculate price based on average cost"
-//         // Ở đây tôi giả định bạn chỉ cần gửi lại profit_percent hiện tại
-//         const dataToUpdate = {
-//           profit_percent: variantToUpdate.profit_percent, // Giữ nguyên profit_percent hiện tại
-//           // backend sẽ dựa vào profit_percent này và average_cost để tính price
-//         };
-//         return variantApi.update(id, dataToUpdate);
-//       });
-
-//       await Promise.all(updatePromises);
-
-//       setSelectedVariantIds(new Set());
-//       setProfitPercentInput('');
-//       // setProfitPercentChange(null); // Không còn cần thiết
-
-//       await loadVariants(); // Re-fetch data để lấy giá mới nhất
-//       alert(`Đã cập nhật giá bán cho ${updatePromises.length} sản phẩm theo giá gốc mới.`);
-//     } catch (error) {
-//       console.error("Lỗi khi cập nhật giá bán theo giá gốc mới:", error);
-//       alert("Có lỗi xảy ra khi cập nhật giá bán. Vui lòng kiểm tra console để biết thêm chi tiết.");
-//     } finally {
-//       setLoading(false);
-//     }
-//   }, [selectedVariantIds, allVariants, loadVariants]);
-
-
-//    // CHỈNH SỬA HÀM handleSearchAndFilter TẠI ĐÂY
-//   const handleSearchAndFilter = useCallback(() => {
-//     const lowerCaseSearchTerm = searchTerm.toLowerCase().trim(); // Thêm .trim()
-//     const filtered = allVariants.filter(variant => {
-//       // Lấy tên danh mục từ product.category.name một cách an toàn
-//       const variantCategoryName = variant.product?.category?.name;
-
-//       // Kiểm tra xem variant có khớp với searchTerm không
-//       const matchesSearch =
-//         variant.sku.toLowerCase().includes(lowerCaseSearchTerm) ||
-//         (variant.product?.name && variant.product.name.toLowerCase().includes(lowerCaseSearchTerm)) || // Thêm tìm kiếm theo tên product
-//         (variant.full_name && variant.full_name.toLowerCase().includes(lowerCaseSearchTerm)) || // <-- THÊM DÒNG NÀY ĐỂ TÌM THEO full_name
-
-//         (variantCategoryName && variantCategoryName.toLowerCase().includes(lowerCaseSearchTerm)) ||
-//         (variant.variant_spec_values?.some(sv => {
-//           // Kết hợp các giá trị spec thành một chuỗi để tìm kiếm dễ hơn
-//           const specValue = sv.value_text || sv.spec_options?.value;
-//           return (
-//             (specValue && specValue.toLowerCase().includes(lowerCaseSearchTerm)) ||
-//             (sv.specification.name && sv.specification.name.toLowerCase().includes(lowerCaseSearchTerm))
-//           );
-//         }) || false);
-
-//       // Kiểm tra xem variant có khớp với selectedCategory không
-//       // Nếu selectedCategory rỗng, coi như khớp với tất cả
-//       const matchesCategory = selectedCategory === '' || (variantCategoryName === selectedCategory);
-
-//       // Trả về true nếu khớp cả điều kiện tìm kiếm và điều kiện lọc danh mục
-//       return matchesSearch && matchesCategory;
-//     });
-
-//     setFilteredVariants(filtered);
-//     setSelectedVariantIds(new Set()); // Reset lựa chọn khi filter để tránh chọn nhầm sản phẩm không còn hiển thị
-//   }, [allVariants, searchTerm, selectedCategory]);
-
-//   // Hàm xử lý thay đổi input % lợi nhuận (Không cần chỉnh sửa)
+//   // Handle change for profit percent input
 //   const handleProfitPercentInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
 //     const value = e.target.value;
 //     setProfitPercentInput(value);
 //   }, []);
+
+//   // --- NEW: Handle "Cập nhật giá cho {selectedVariantCount} sản phẩm" button (Đặt giá theo gốc mới) ---
+//   const handleSetPricesByTargetProfit = useCallback(async () => {
+//     if (selectedVariantIds.size === 0) {
+//       return;
+//     }
+//     const parsedProfit = parseFloat(profitPercentInput);
+//     if (isNaN(parsedProfit) || parsedProfit < -100) { // Allow negative profit but not below -100
+//       return;
+//     }
+
+//     setLoadingUpdate(true);
+//     try {
+//       const response = await variantApi.setPricesByTargetProfit(
+//         Array.from(selectedVariantIds),
+//         parsedProfit,
+//         selectedPsychologicalStrategy
+//       );
+//       // Re-fetch data to reflect updated prices and profit_percent from backend
+//       await loadVariants();
+//       setSelectedVariantIds(new Set()); // Clear selection
+//       setProfitPercentInput(''); // Reset input
+//     } catch (error) {
+//       handleApiError(error, "Có lỗi xảy ra khi cập nhật giá theo lợi nhuận mục tiêu.");
+//     } finally {
+//       setLoadingUpdate(false);
+//     }
+//   }, [selectedVariantIds, profitPercentInput, selectedPsychologicalStrategy, loadVariants, handleApiError]);
+
+//   // --- NEW: Handle "Cập nhật giá bán theo giá gốc mới ({selectedVariantCount})" button ---
+//   const handleRecalculatePricesByCurrentCost = useCallback(async () => {
+//     if (selectedVariantIds.size === 0) {
+//       return;
+//     }
+
+//     setLoadingUpdate(true);
+//     try {
+//       const response = await variantApi.recalculatePricesByCurrentCost(
+//         Array.from(selectedVariantIds),
+//         selectedPsychologicalStrategy
+//       );
+//       // Re-fetch data to reflect updated prices from backend
+//       await loadVariants();
+//       setSelectedVariantIds(new Set()); // Clear selection
+//     } catch (error) {
+//       handleApiError(error, "Có lỗi xảy ra khi cập nhật giá bán theo giá gốc mới.");
+//     } finally {
+//       setLoadingUpdate(false);
+//     }
+//   }, [selectedVariantIds, selectedPsychologicalStrategy, loadVariants, handleApiError]);
+
 
 //   if (loading) {
 //     return (
@@ -483,14 +562,19 @@ export default function BulkPriceUpdatePage() {
 //         searchTerm={searchTerm}
 //         setSearchTerm={setSearchTerm}
 //         selectedCategory={selectedCategory}
+//         // setCategories={setCategories} // Pass setCategories if you want the form to manage categories directly
 //         setSelectedCategory={setSelectedCategory}
 //         handleSearchAndFilter={handleSearchAndFilter}
-//         profitPercentInput={profitPercentInput} // TRUYỀN PROP NÀY XUỐNG BulkPriceUpdateForm
+//         profitPercentInput={profitPercentInput}
 //         handleProfitPercentInputChange={handleProfitPercentInputChange}
-//         handleApplyChanges={handleApplyChanges}
-//         handleUpdatePriceByAverageCost={handleUpdatePriceByAverageCost} // <-- Vẫn giữ nút này
+//         // Pass the new API handling functions
+//         handleSetPricesByTargetProfit={handleSetPricesByTargetProfit}
+//         handleRecalculatePricesByCurrentCost={handleRecalculatePricesByCurrentCost}
 //         selectedVariantCount={selectedVariantIds.size}
-//         categories={categories.map(cat => cat.name)} 
+//         categories={categories.map(cat => cat.name)} // Pass only category names to the form
+//         selectedPsychologicalStrategy={selectedPsychologicalStrategy}
+//         setSelectedPsychologicalStrategy={setSelectedPsychologicalStrategy}
+//         loadingUpdate={loadingUpdate} // Pass loading state to disable buttons
 //       />
 
 //       <ProductTable
@@ -499,7 +583,7 @@ export default function BulkPriceUpdatePage() {
 //         isAllSelected={isAllSelected}
 //         toggleSelectAll={toggleSelectAll}
 //         toggleSelectVariant={toggleSelectVariant}
-//         profitPercentInput={profitPercentInput} // TRUYỀN PROP NÀY XUỐNG ProductTable
+//         profitPercentInput={profitPercentInput}
 //       />
 //     </div>
 //   );

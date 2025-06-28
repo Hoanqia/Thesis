@@ -122,6 +122,7 @@ class ReviewService
         $review->fill([
             'message'    => $data['message'] ?? $review->message,
             'rate'       => $data['rate'] ?? $review->rate,
+            'admin_reply' => $data['admin_reply'] ?? null,
             // Có thể reset status về pending nếu muốn duyệt lại sau sửa
             // 'status'   => 'pending',
         ]);

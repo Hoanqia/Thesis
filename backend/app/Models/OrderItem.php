@@ -14,6 +14,8 @@ class OrderItem extends Model
         'variant_name',
         'price',
         'quantity',
+        'cogs_per_unit',
+        'subtotal_cogs',
     ];
 
     public function order()
@@ -24,5 +26,9 @@ class OrderItem extends Model
     public function variant()
     {
         return $this->belongsTo(Variant::class);
+    }
+        public function stockLotAllocations()
+    {
+        return $this->hasMany(StockLotAllocation::class);
     }
 }

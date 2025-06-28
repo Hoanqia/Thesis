@@ -23,6 +23,7 @@ use App\Http\Controllers\GrnController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\PricingController;
 use App\Http\Controllers\PurchaseOrderController;
+use App\Http\Controllers\StockLotController;
 // use app\Http\Middleware\RoleMiddleware;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
@@ -55,13 +56,31 @@ Route::middleware(['jwt.auth'])->group(function () {
     Route::middleware('role:admin')->group(function (){
         Route::prefix('admin')->group(function () {
 
+
+                        // GET /api/stock-lots - Lấy danh sách lô hàng với bộ lọc và phân trang
+            Route::get('stock-lots', [StockLotController::class, 'index']);
+
+            // GET /api/stock-lots/{id} - Lấy thông tin chi tiết của một lô hàng
+            Route::get('stock-lots/{id}', [StockLotController::class, 'show']);
+
+            // GET /api/stock-lots/{id}/adjust-form - Cung cấp dữ liệu cho form điều chỉnh số lượng lô hàng
+            Route::get('stock-lots/{id}/adjust-form', [StockLotController::class, 'adjustForm']);
+
+            // POST /api/stock-lots/{id}/adjust - Xử lý yêu cầu điều chỉnh số lượng lô hàng
+            Route::post('stock-lots/{id}/adjust', [StockLotController::class, 'updateAdjustment']);
+
+
+            Route::patch('/{variantFromSupplierId}/set-default', [SupplierController::class, 'setDefautVariantFromSupplier']);
+
+            Route::post('/pricing/setByTargetProfitFromSupplier',[PricingController::class,'setByTargetProfitFromSupplier']);
+            Route::post('/pricing/recalculateByChosenSupplierCost',[PricingController::class,'recalculateByChosenSupplierCost']);
+
             Route::patch('/purchase_orders/{id}/status',[PurchaseOrderController::class,'updateStatus']);
             Route::delete('/purchase_orders/{id}',[PurchaseOrderController::class,'destroy']);
             Route::patch('/purchase_orders/{id}',[PurchaseOrderController::class,'update']);
             Route::get('/purchase_orders/{id}',[PurchaseOrderController::class,'show']);
             Route::post('/purchase_orders',[PurchaseOrderController::class,'store']);
             Route::get('/purchase_orders',[PurchaseOrderController::class,'index']);
-
 
 
             Route::get('/suppliers/{supplierId}/variants', [SupplierController::class, 'getSupplierVariants']);
@@ -79,6 +98,7 @@ Route::middleware(['jwt.auth'])->group(function () {
             Route::get('/suppliers',[SupplierController::class,'index']);
 
 
+          
 
             Route::post('/pricing/set-by-target-profit',[PricingController::class,'setPricesByTargetProfit']);
             Route::post('/pricing/recalculate-by-current-cost',[PricingController::class,'recalculatePricesByCurrentCost']);

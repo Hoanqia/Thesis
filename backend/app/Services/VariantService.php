@@ -445,7 +445,7 @@ public function updateVariant(int $variantId, array $data)
 
     public function getAllVariants()
 {
-    $variants = Variant::with('product.category')->get();
+    $variants = Variant::with(['product.category','variant_from_suppliers.supplier'])->get();
 
     // foreach ($variants as $variant) {
     //     $variant->image = $variant->image ? asset('storage/' . $variant->image) : null;

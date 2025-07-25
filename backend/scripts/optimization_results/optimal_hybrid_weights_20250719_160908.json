@@ -1,0 +1,14 @@
+{
+    "optimal_implicit_weights": {
+        "view_product": 0.01,
+        "add_to_cart": 0.37025661527279174,
+        "wishlist": 0.16972695003778474,
+        "purchase": 1.0
+    },
+    "optimal_hybrid_alpha": 0.917285430328835,
+    "best_ndcg": 0.4266486106569642,
+    "top_n_recommendations": 10,
+    "top_k_similar_items": 15,
+    "cosine_threshold": 0.1,
+    "optimization_timestamp": "20250719_160908"
+}

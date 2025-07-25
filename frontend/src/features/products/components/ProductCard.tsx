@@ -234,6 +234,7 @@ export function ProductCard({ product ,categorySlug}: ProductCardProps) {
             fill                   // cho image bám đầy container
             className="rounded-xl object-contain"
             priority
+            unoptimized
           />
         </div>
         {/* Tên sản phẩm */}

@@ -39,5 +39,13 @@ return [
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
         'redirect' => env('GOOGLE_REDIRECT_URI')
     ],
+     // Cấu hình riêng cho Google Mailer (Web client 2)
+    'google_mailer' => [ // Đặt tên khác để phân biệt với 'google'
+        'client_id' => env('GOOGLE_MAILER_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_MAILER_CLIENT_SECRET'),
+        // Không cần 'redirect' ở đây vì nó chỉ dùng trong Job/Route tạm thời để lấy refresh token
+        // nhưng nếu bạn muốn giữ cho nhất quán, bạn có thể thêm:
+        // 'redirect' => env('GOOGLE_MAILER_REDIRECT_URI'),
+    ],
 
 ];

@@ -37,14 +37,29 @@ class ReviewController extends Controller
     /**
      * Lấy danh sách reviews đã duyệt cho một product
      */
-    public function index(int $productId): JsonResponse
+    public function index(Request $request, int $productId): JsonResponse
     {
         try {
-            $reviews = $this->reviewService->getAllReviewsOfProduct($productId);
+            // Get per_page from request, default to 10 if not provided
+            $perPage = $request->input('per_page', 10);
+            $reviews = $this->reviewService->getAllReviewsOfProduct($productId, $perPage);
+            $reviewDistribution = $this->reviewService->getReviewDistribution($productId); // <-- Gọi phương thức này
+
             return response()->json([
                 'message' => $reviews->isEmpty() ? 'Chưa có review cho sản phẩm này' : 'Lấy danh sách review thành công',
                 'status'  => 'success',
-                'data'    => $reviews,
+                'data'    => $reviews->items(), // Get the current page items
+                'meta'    => [
+                    'current_page' => $reviews->currentPage(),
+                    'from'         => $reviews->firstItem(),
+                    'last_page'    => $reviews->lastPage(),
+                    'links'        => $reviews->linkCollection(), // All pagination links
+                    'path'         => $reviews->path(),
+                    'per_page'     => $reviews->perPage(),
+                    'to'           => $reviews->lastItem(),
+                    'total'        => $reviews->total(),
+                ],
+                'review_distribution' => $reviewDistribution,
             ]);
         } catch (\Exception $e) {
             return ApiExceptionHandler::handleException($e);

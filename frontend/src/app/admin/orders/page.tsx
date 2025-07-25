@@ -1,54 +1,67 @@
 // frontend/src/app/admin/orders/page.tsx
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import CrudGeneric, {
   FieldConfig,
-} from "@/components/ui/CrudOder";
+} from "@/components/ui/CrudOder"; // Đổi tên file thành CrudOrder.tsx nếu cần
 import { Badge } from "@/components/ui/badge";
-import { adminOrderApi, Order } from "@/features/orders/api/orderApi";
+import { adminOrderApi, Order, PaginationParams } from "@/features/orders/api/orderApi";
 import { toast, Toaster } from 'react-hot-toast';
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [perPage, setPerPage] = useState<number>(10); // Số lượng mục trên mỗi trang
+  const [totalItems, setTotalItems] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(1);
 
   // Modal để hiển thị chi tiết đơn hàng
   const [detailOrder, setDetailOrder] = useState<Order | null>(null);
 
-   async function fetchOrders() {
-      // toast.loading('Đang tải danh sách đơn hàng...', { id: 'fetch' });
-      try {
-        const data = await adminOrderApi.getAllOrders();
-        setOrders(data);
-        // toast.success('Lấy danh sách đơn hàng thành công', { id: 'fetch' });
-      } catch (error) {
-        console.error("Lỗi khi lấy danh sách đơn hàng:", error);
-        toast.error('Lỗi tải đơn hàng', { id: 'fetch' });
-      } finally {
-        setLoading(false);
+  // Sử dụng useCallback để tránh tạo lại hàm fetchOrders mỗi lần render
+  const fetchOrders = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await adminOrderApi.getAllOrders({ page: currentPage, per_page: perPage });
+      setOrders(response.data);
+      if (response.pagination) {
+        setTotalItems(response.pagination.total);
+        setTotalPages(response.pagination.last_page);
+        setCurrentPage(response.pagination.current_page); // Đảm bảo currentPage được đồng bộ với API
+        setPerPage(response.pagination.per_page); // Đảm bảo perPage được đồng bộ với API
       }
+      toast.success('Lấy danh sách đơn hàng thành công', { id: 'fetch-orders' });
+    } catch (error) {
+      console.error("Lỗi khi lấy danh sách đơn hàng:", error);
+      toast.error('Lỗi tải đơn hàng', { id: 'fetch-orders' });
+    } finally {
+      setLoading(false);
     }
+  }, [currentPage, perPage]); // Dependency array: fetchOrders sẽ chạy lại khi currentPage hoặc perPage thay đổi
 
-  // Fetch tất cả đơn hàng khi mount
+  // Fetch tất cả đơn hàng khi mount hoặc khi currentPage/perPage thay đổi
   useEffect(() => {
-   
     fetchOrders();
-  }, []);
+  }, [fetchOrders]); // Dependency on fetchOrders (which itself depends on currentPage, perPage)
 
   // Callback khi xóa
   const handleDelete = async (id: number) => {
     try {
       await adminOrderApi.deleteOrder(id);
-      setOrders((prev) => prev.filter((o) => o.id !== id));
       toast.success('Xóa đơn hàng thành công');
-         fetchOrders();
-
+      // Sau khi xóa, fetch lại dữ liệu để cập nhật danh sách
+      // Nếu trang hiện tại không còn item nào, quay lại trang trước
+      if (orders.length === 1 && currentPage > 1) {
+        setCurrentPage(prev => prev - 1);
+      } else {
+        fetchOrders();
+      }
     } catch (error) {
       console.error("Lỗi khi xóa đơn hàng:", error);
       toast.error('Xóa đơn hàng thất bại');
-            fetchOrders();
-
+      fetchOrders(); // Fetch lại để đảm bảo trạng thái đúng
     }
   };
 
@@ -68,59 +81,38 @@ export default function AdminOrdersPage() {
       const nextStatus = STATUS_FLOW[(currentIdx + 1) % STATUS_FLOW.length];
 
       await adminOrderApi.updateOrderStatus(id, nextStatus);
-      setOrders(prev =>
-        prev.map(o =>
-          o.id === id ? { ...o, status: nextStatus } : o
-        )
-      );
       toast.success('Cập nhật trạng thái thành công');
-        fetchOrders();
-
+      fetchOrders(); // Fetch lại để cập nhật trạng thái mới nhất
     } catch (error) {
       console.error("Lỗi khi chuyển trạng thái đơn hàng:", error);
       toast.error('Cập nhật trạng thái thất bại');
-           fetchOrders();
-
+      fetchOrders(); // Fetch lại để đảm bảo trạng thái đúng
     }
   };
 
   const markAsPaid = async (id: number) => {
     try {
       await adminOrderApi.markAsPaid(id);
-      setOrders((prev) =>
-        prev.map((o) =>
-          o.id === id
-            ? { ...o, is_paid: true }
-            : o
-        )
-      );
-      toast.success('Đánh dấu đã thanh toán thành công' );
-       fetchOrders();
-
+      toast.success('Đánh dấu đã thanh toán thành công');
+      fetchOrders(); // Fetch lại để cập nhật trạng thái mới nhất
     } catch (error) {
       console.error("Lỗi khi đánh dấu đã thanh toán:", error);
       toast.error('Đánh dấu thanh toán thất bại');
-       fetchOrders();
-
+      fetchOrders(); // Fetch lại để đảm bảo trạng thái đúng
     }
   };
 
-const confirm_order = async (id: number): Promise<void> => {
-  // Tạo loading toast, giữ lại id
-  const toastId = toast.loading('Đang xác nhận đơn hàng...');
-  try {
-    await adminOrderApi.confirmOrder(id);
-    // Cập nhật UI
-    await fetchOrders();
-    // Đổi sang success
-    toast.success('Xác nhận đơn hàng thành công', { id: toastId });
-  } catch (error: any) {
-    console.error("Lỗi khi xác nhận đơn hàng:", error);
-    // Đổi sang error
-    toast.error(error?.message || 'Xác nhận đơn hàng thất bại', { id: toastId });
-  }
-};
-
+  const confirm_order = async (id: number): Promise<void> => {
+    const toastId = toast.loading('Đang xác nhận đơn hàng...');
+    try {
+      await adminOrderApi.confirmOrder(id);
+      await fetchOrders(); // Fetch lại để cập nhật UI
+      toast.success('Xác nhận đơn hàng thành công', { id: toastId });
+    } catch (error: any) {
+      console.error("Lỗi khi xác nhận đơn hàng:", error);
+      toast.error(error?.message || 'Xác nhận đơn hàng thất bại', { id: toastId });
+    }
+  };
 
   // Callback khi tạo mới (Admin không tạo được đơn hàng)
   const handleCreate = async (_item: Omit<Order, "id">) => {
@@ -129,14 +121,12 @@ const confirm_order = async (id: number): Promise<void> => {
 
   // Callback khi xem chi tiết
   const handleViewDetails = async (id: number) => {
-    // const toastId = toast.loading('Đang lấy chi tiết đơn hàng...');
     try {
       const data = await adminOrderApi.getOrderById(id);
-      setDetailOrder(data);
-      // toast.success('Lấy chi tiết đơn hàng thành công', { id: toastId });
+      setDetailOrder(data); // Lấy data từ response
     } catch (error) {
       console.error("Lỗi khi lấy chi tiết đơn hàng:", error);
-      // toast.error('Lấy chi tiết đơn hàng thất bại', { id: toastId });
+      toast.error('Lấy chi tiết đơn hàng thất bại');
     }
   };
 
@@ -223,7 +213,7 @@ const confirm_order = async (id: number): Promise<void> => {
       <div className="p-6">
         <CrudGeneric<Order>
           title="Quản lý Đơn hàng"
-          initialData={orders}
+          initialData={orders} // Truyền dữ liệu đã được phân trang từ API
           columns={columns}
           headerLabels={headerLabels}
           renderRow={renderRow}
@@ -237,7 +227,7 @@ const confirm_order = async (id: number): Promise<void> => {
               onClick: () => handleViewDetails(item.id),
               className: "text-blue-600",
             },
-             {
+            {
               label: item.status === "pending" ? "Xác nhận đơn hàng" : "Đã xác nhận",
               onClick: item.status === "pending" ? () => confirm_order(item.id) : () => {},
               className: item.status === "pending"
@@ -249,27 +239,19 @@ const confirm_order = async (id: number): Promise<void> => {
               onClick: () => markAsPaid(item.id),
               className: item.is_paid ? "text-gray-400 cursor-not-allowed" : "text-green-600",
             },
-
-            
           ]}
-          
           fields={fields}
           fieldsConfig={fieldsConfig}
+          // Props mới cho phân trang
+          currentPage={currentPage}
+          totalItems={totalItems}
+          perPage={perPage}
+          onPageChange={setCurrentPage}
+          onPerPageChange={setPerPage}
         />
       </div>
 
       {detailOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg w-3/4 max-h-[80vh] overflow-auto p-6 relative">
-            <button
-              onClick={closeDetailModal}
-              className="absolute top-2 right-2 text-gray-600 hover:text-gray-800"
-            >
-              ✕
-            </button>
-            <h2 className="text-xl font-bold mb-4">Chi tiết Đơn hàng #{detailOrder.id}</h2>
-              {/* Modal hiển thị chi tiết đơn hàng */}
-              {detailOrder && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg w-3/4 max-h-[80vh] overflow-auto p-6 relative">
             <button
@@ -386,9 +368,7 @@ const confirm_order = async (id: number): Promise<void> => {
           </div>
         </div>
       )}
-          </div>
-        </div>
-      )}
+      
     </>
   );
 }
@@ -411,19 +391,23 @@ const confirm_order = async (id: number): Promise<void> => {
 //   // Modal để hiển thị chi tiết đơn hàng
 //   const [detailOrder, setDetailOrder] = useState<Order | null>(null);
 
-//   // Fetch tất cả đơn hàng khi mount
-//   useEffect(() => {
-//     async function fetchOrders() {
+//    async function fetchOrders() {
+//       // toast.loading('Đang tải danh sách đơn hàng...', { id: 'fetch' });
 //       try {
 //         const data = await adminOrderApi.getAllOrders();
 //         setOrders(data);
+//         // toast.success('Lấy danh sách đơn hàng thành công', { id: 'fetch' });
 //       } catch (error) {
 //         console.error("Lỗi khi lấy danh sách đơn hàng:", error);
-
+//         toast.error('Lỗi tải đơn hàng', { id: 'fetch' });
 //       } finally {
 //         setLoading(false);
 //       }
 //     }
+
+//   // Fetch tất cả đơn hàng khi mount
+//   useEffect(() => {
+   
 //     fetchOrders();
 //   }, []);
 
@@ -432,12 +416,18 @@ const confirm_order = async (id: number): Promise<void> => {
 //     try {
 //       await adminOrderApi.deleteOrder(id);
 //       setOrders((prev) => prev.filter((o) => o.id !== id));
+//       toast.success('Xóa đơn hàng thành công');
+//          fetchOrders();
+
 //     } catch (error) {
 //       console.error("Lỗi khi xóa đơn hàng:", error);
+//       toast.error('Xóa đơn hàng thất bại');
+//             fetchOrders();
+
 //     }
 //   };
 
-//    const STATUS_FLOW: Order["status"][] = [
+//   const STATUS_FLOW: Order["status"][] = [
 //     "pending",
 //     "confirmed",
 //     "shipping",
@@ -447,82 +437,88 @@ const confirm_order = async (id: number): Promise<void> => {
 
 //   const handleToggleStatus = async (id: number) => {
 //     try {
-//       // tìm order gốc
 //       const order = orders.find(o => o.id === id);
-//       if (!order) return;
-
-//       // xác định next status
+//       if (!order) throw new Error('Order not found');
 //       const currentIdx = STATUS_FLOW.indexOf(order.status);
-//       const nextIdx = (currentIdx + 1) % STATUS_FLOW.length;
-//       const nextStatus = STATUS_FLOW[nextIdx];
+//       const nextStatus = STATUS_FLOW[(currentIdx + 1) % STATUS_FLOW.length];
 
-//       // gọi API
 //       await adminOrderApi.updateOrderStatus(id, nextStatus);
-
-//       // cập nhật local state
 //       setOrders(prev =>
 //         prev.map(o =>
 //           o.id === id ? { ...o, status: nextStatus } : o
 //         )
 //       );
+//       toast.success('Cập nhật trạng thái thành công');
+//         fetchOrders();
+
 //     } catch (error) {
 //       console.error("Lỗi khi chuyển trạng thái đơn hàng:", error);
+//       toast.error('Cập nhật trạng thái thất bại');
+//            fetchOrders();
+
 //     }
 //   };
 
-//     const markAsPaid = async (id: number) => {
+//   const markAsPaid = async (id: number) => {
 //     try {
-//       // Gọi API markAsPaid
 //       await adminOrderApi.markAsPaid(id);
-
-//       // Cập nhật lại state orders: đánh dấu đơn đã thanh toán
 //       setOrders((prev) =>
 //         prev.map((o) =>
 //           o.id === id
-//             ? {
-//                 ...o,
-//                 is_paid: true,
-//               }
+//             ? { ...o, is_paid: true }
 //             : o
 //         )
 //       );
+//       toast.success('Đánh dấu đã thanh toán thành công' );
+//        fetchOrders();
+
 //     } catch (error) {
 //       console.error("Lỗi khi đánh dấu đã thanh toán:", error);
+//       toast.error('Đánh dấu thanh toán thất bại');
+//        fetchOrders();
+
 //     }
 //   };
 
+// const confirm_order = async (id: number): Promise<void> => {
+//   // Tạo loading toast, giữ lại id
+//   const toastId = toast.loading('Đang xác nhận đơn hàng...');
+//   try {
+//     await adminOrderApi.confirmOrder(id);
+//     // Cập nhật UI
+//     await fetchOrders();
+//     // Đổi sang success
+//     toast.success('Xác nhận đơn hàng thành công', { id: toastId });
+//   } catch (error: any) {
+//     console.error("Lỗi khi xác nhận đơn hàng:", error);
+//     // Đổi sang error
+//     toast.error(error?.message || 'Xác nhận đơn hàng thất bại', { id: toastId });
+//   }
+// };
 
-//   const confirm_order = async (id: number): Promise<Order> => {
-//     try {
-//       const updatedOrder = await adminOrderApi.confirmOrder(id);
-//       return updatedOrder;
-//     } catch (error) {
-//       console.error("Lỗi khi xác nhận đơn hàng:", error);
-//       throw error;
-//     }
-//   };
 
 //   // Callback khi tạo mới (Admin không tạo được đơn hàng)
 //   const handleCreate = async (_item: Omit<Order, "id">) => {
-//     alert("Admin không thể tạo mới đơn hàng từ giao diện này.");
+//     toast('Admin không thể tạo mới đơn hàng từ giao diện này.', { icon: 'ℹ️' });
 //   };
 
 //   // Callback khi xem chi tiết
 //   const handleViewDetails = async (id: number) => {
+//     // const toastId = toast.loading('Đang lấy chi tiết đơn hàng...');
 //     try {
 //       const data = await adminOrderApi.getOrderById(id);
 //       setDetailOrder(data);
+//       // toast.success('Lấy chi tiết đơn hàng thành công', { id: toastId });
 //     } catch (error) {
 //       console.error("Lỗi khi lấy chi tiết đơn hàng:", error);
+//       // toast.error('Lấy chi tiết đơn hàng thất bại', { id: toastId });
 //     }
 //   };
 
-//   // Đóng modal chi tiết
 //   const closeDetailModal = () => {
 //     setDetailOrder(null);
 //   };
 
-//   // Cấu hình trường cho modal chỉnh sửa: chỉ status và is_paid
 //   const fields: (keyof Order)[] = ["status", "is_paid"];
 //   const fieldsConfig: Partial<Record<keyof Order, FieldConfig>> = {
 //     status: {
@@ -543,7 +539,6 @@ const confirm_order = async (id: number): Promise<void> => {
 //     },
 //   };
 
-//   // Định nghĩa cột hiển thị trong bảng
 //   const columns: (keyof Order)[] = [
 //     "id",
 //     "user_id",
@@ -561,7 +556,6 @@ const confirm_order = async (id: number): Promise<void> => {
 //     created_at: "Created At",
 //   };
 
-//   // Tùy chỉnh hiển thị từng ô, chỉ dùng variant hợp lệ: "default"|"secondary"|"destructive"|"outline"
 //   const renderRow = (item: Order, column: keyof Order) => {
 //     switch (column) {
 //       case "status": {
@@ -572,7 +566,7 @@ const confirm_order = async (id: number): Promise<void> => {
 //         else if (item.status === "completed") variant = "secondary";
 //         else if (item.status === "canceled") variant = "outline";
 
-//          const statusStr = String(item.status);
+//         const statusStr = String(item.status);
 //         return (
 //           <Badge variant={variant}>
 //             {statusStr.charAt(0).toUpperCase() + statusStr.slice(1)}
@@ -615,28 +609,42 @@ const confirm_order = async (id: number): Promise<void> => {
 //           renderActions={(item) => [
 //             {
 //               label: "Xem chi tiết",
-//               onClick: () => handleViewDetails(item.id),  // <-- wrap thành callback
+//               onClick: () => handleViewDetails(item.id),
 //               className: "text-blue-600",
 //             },
 //              {
-//             label: "Xán nhận đơn hàng",
-//             onClick: () => confirm_order(item.id),
-//             className: "text-green-600"
-//           },
-//            {
-//             label: item.is_paid ? "Đã thanh toán" : "Xác nhận thanh toán",
-//             onClick: () => markAsPaid(item.id),
-//             className: item.is_paid ? "text-gray-400 cursor-not-allowed" : "text-green-600",
-//           },
-         
+//               label: item.status === "pending" ? "Xác nhận đơn hàng" : "Đã xác nhận",
+//               onClick: item.status === "pending" ? () => confirm_order(item.id) : () => {},
+//               className: item.status === "pending"
+//                 ? "text-green-600"
+//                 : "text-gray-400 cursor-not-allowed",
+//             },
+//             {
+//               label: item.is_paid ? "Đã thanh toán" : "Xác nhận thanh toán",
+//               onClick: () => markAsPaid(item.id),
+//               className: item.is_paid ? "text-gray-400 cursor-not-allowed" : "text-green-600",
+//             },
+
+            
 //           ]}
+          
 //           fields={fields}
 //           fieldsConfig={fieldsConfig}
 //         />
 //       </div>
 
-//       {/* Modal hiển thị chi tiết đơn hàng */}
 //       {detailOrder && (
+//         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+//           <div className="bg-white rounded-lg w-3/4 max-h-[80vh] overflow-auto p-6 relative">
+//             <button
+//               onClick={closeDetailModal}
+//               className="absolute top-2 right-2 text-gray-600 hover:text-gray-800"
+//             >
+//               ✕
+//             </button>
+//             <h2 className="text-xl font-bold mb-4">Chi tiết Đơn hàng #{detailOrder.id}</h2>
+//               {/* Modal hiển thị chi tiết đơn hàng */}
+//               {detailOrder && (
 //         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
 //           <div className="bg-white rounded-lg w-3/4 max-h-[80vh] overflow-auto p-6 relative">
 //             <button
@@ -753,6 +761,10 @@ const confirm_order = async (id: number): Promise<void> => {
 //           </div>
 //         </div>
 //       )}
+//           </div>
+//         </div>
+//       )}
 //     </>
 //   );
 // }
+

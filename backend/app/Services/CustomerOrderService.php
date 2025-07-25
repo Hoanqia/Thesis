@@ -11,7 +11,8 @@ use App\Models\ShippingMethod;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\Services\UserEventService;
-
+use App\Jobs\SendOrderConfirmationEmail; // Import Job gửi email
+use Exception;
 class CustomerOrderService
 {   
 
@@ -184,6 +185,8 @@ class CustomerOrderService
                     ->whereIn('variant_id', $variantIds)
                     ->delete();
             }
+
+            SendOrderConfirmationEmail::dispatch($order->load('orderItems', 'user'));
 
             return $order->load('orderItems');
         });

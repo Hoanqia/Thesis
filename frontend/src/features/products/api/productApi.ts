@@ -1,4 +1,7 @@
 // frontend\src\features\products\api\productApi.ts
+import { Brand } from "@/features/brands/api/brandApi";
+import { Category } from "@/features/categories/api/categoryApi";
+import { Variant } from "@/features/variants/api/variantApi";
 import { axiosRequest } from "@/lib/axiosRequest";
 
 export interface Product {
@@ -13,6 +16,9 @@ export interface Product {
   status: boolean;
   reviews_count?: number;
   reviews_avg_rate?: string;
+  brand?: Brand;
+  category?: Category;
+  variants?: Variant[];
 }
 
 export async function fetchSearchSuggestions(query: string): Promise<string[]> {
@@ -54,10 +60,56 @@ export async function fetchProducts(): Promise<Product[]> {
     .then(res => res.data);
 }
 
-export async function fetchProductsbyCatSlug(categorySlug: string): Promise<Product[]>{
-    return axiosRequest<{data: Product[]}>(`${categorySlug}/products`,"GET").then(res => res.data)
-}
+// export async function fetchProductsbyCatSlug(categorySlug: string): Promise<Product[]>{
+//     return axiosRequest<{data: Product[]}>(`${categorySlug}/products`,"GET").then(res => res.data)
+// }
+  
 
+export async function fetchProductsByCatSlug(
+  categorySlug: string
+): Promise<Product[]> {
+  // Gọi API, res.data là mảng stdClass với các trường brand, category, variants dưới dạng JSON object/array
+  const { data: rawProducts } = await axiosRequest<{ data: any[] }>(
+    `${categorySlug}/products`,
+    'GET'
+  );
+
+  // Map và parse từng record về đúng interface Product
+  return rawProducts.map((item): Product => {
+    // brand và category đã là object, không cần JSON.parse
+    const brand: Brand | undefined = item.brand
+      ? (item.brand as Brand) // Chỉ cần cast trực tiếp về kiểu Brand
+      : undefined;
+
+    const category: Category | undefined = item.category
+      ? (item.category as Category) // Chỉ cần cast trực tiếp về kiểu Category
+      : undefined;
+
+    // variants đã là mảng, không cần JSON.parse
+    const variants: Variant[] = item.variants
+      ? (item.variants as Variant[]) // Chỉ cần cast trực tiếp về kiểu Variant[]
+      : [];
+
+    return {
+      id: item.id,
+      name: item.name,
+      slug: item.slug,
+      description: item.description,
+      cat_id: item.cat_id,
+      categorySlug: item.categorySlug,
+      brand_id: item.brand_id,
+      is_featured: Boolean(item.is_featured),
+      status: Boolean(item.status),
+      reviews_count: item.reviews_count ?? 0,
+      reviews_avg_rate: item.reviews_avg_rate
+        ? String(item.reviews_avg_rate)
+        : undefined,
+      brand,
+      category,
+      variants,
+    };
+  });
+}
 export async function fetchProductBySlug(productSlug: string): Promise<Product> {
     return axiosRequest<{data: Product}>(`products/${productSlug}`,"GET").then(res => res.data)
 }

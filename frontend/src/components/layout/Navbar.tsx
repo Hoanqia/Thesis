@@ -309,7 +309,7 @@ export default function Navbar() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="ml-4 flex items-center rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                  <img src="/avatar-default.png" alt="User Avatar" className="h-8 w-8 rounded-full" />
+              <img src="/avatar-default.png" alt="User Avatar" className="h-8 w-8 rounded-full" loading="lazy" />
                 </button>
               </DropdownMenuTrigger>
 

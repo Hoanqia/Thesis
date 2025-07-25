@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Pagination\LengthAwarePaginator; // <-- Add this line
 
 class ReviewService
 {   
@@ -35,27 +36,62 @@ class ReviewService
         });
        return $result;
     }
-    public function getAllReviewsOfProduct(int $productId){
-           $reviews = Review::with([
+
+    public function getReviewDistribution(int $productId): array
+{
+    $distribution = Review::select(DB::raw('rate, count(*) as count'))
+        ->where('product_id', $productId)
+        ->where('status', 1) // Đảm bảo khớp với điều kiện status của getAllReviewsOfProduct
+        ->groupBy('rate')
+        ->orderBy('rate', 'desc')
+        ->pluck('count', 'rate')
+        ->toArray();
+
+    // Đảm bảo có đủ 5 mức sao, nếu không có thì gán 0
+    $fullDistribution = [];
+    for ($i = 5; $i >= 1; $i--) {
+        $fullDistribution[$i] = $distribution[$i] ?? 0;
+    }
+
+    return $fullDistribution;
+}
+
+    public function getAllReviewsOfProduct(int $productId, int $perPage = 10): LengthAwarePaginator
+    {
+        $reviews = Review::with([
             'user:id,name',
-            'variant'  
-        ])->where('product_id',$productId)->get();
+            'variant'
+        ])
+        ->where('product_id', $productId)
+        ->where('status', 1) // Assuming you only want approved reviews
+        ->paginate($perPage); // Use paginate() instead of get()
+            
         $result = $reviews->map(function (Review $r) {
             return [
-                'id'               => $r->id,
-                'user_id'          => $r->user_id,
-                'user_name'        => $r->user?->name,
-                'variant_id'       => $r->variant_id,
-                'variant_full_name'=> $r->variant?->full_name,
-                'message'          => $r->message,
-                'rate'             => $r->rate,
-                'admin_reply'      => $r->admin_reply,
-                'status'           => $r->status,
-                'created_at'       => $r->created_at->toDateTimeString(),
-                'updated_at'       => $r->updated_at->toDateTimeString(),
+                'id'                => $r->id,
+                'user_id'           => $r->user_id,
+                'user_name'         => $r->user?->name,
+                'variant_id'        => $r->variant_id,
+                'variant_full_name' => $r->variant?->full_name,
+                'message'           => $r->message,
+                'rate'              => $r->rate,
+                'admin_reply'       => $r->admin_reply,
+                'status'            => $r->status,
+                'created_at'        => $r->created_at->toDateTimeString(),
+                'updated_at'        => $r->updated_at->toDateTimeString(),
             ];
         });
-       return $result;
+
+        // The paginate method returns a LengthAwarePaginator instance.
+        // We need to re-wrap the mapped results in a new paginator instance
+        // to maintain all pagination links and metadata.
+        return new LengthAwarePaginator(
+            $result,
+            $reviews->total(),
+            $reviews->perPage(),
+            $reviews->currentPage(),
+            ['path' => request()->url(), 'query' => request()->query()]
+        );
     }
     /**
      * Tạo review mới.

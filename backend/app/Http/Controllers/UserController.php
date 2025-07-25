@@ -38,26 +38,6 @@ class UserController extends Controller
     public function googleLogin(){
         return Socialite::driver('google')->stateless()->redirect();
     }
-
-    //  /**
-    //  * 
-    //  * 
-    //  * @param NA
-    //  * @return void
-    // */
-    // public function googleAuthentication(){
-    //      try {
-    //     $googleUser = Socialite::driver('google')->stateless()->user(); // thêm stateless()
-    //     dd($googleUser); // Test tạm
-        
-    // } catch (\Exception $e) {
-    //     \Log::error("Lỗi: ", [
-    //         'message' => $e->getMessage(),
-    //         'stack' => $e->getTraceAsString()
-    //     ]);
-    //     return response()->json(['error' => 'Login failed'], 500);
-    // }
-    // }
         
    public function googleAuthentication(){
     try {

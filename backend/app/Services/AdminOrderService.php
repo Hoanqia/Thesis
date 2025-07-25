@@ -10,6 +10,8 @@ use App\Services\StockLotService;
 use Exception;
 use Illuminate\Support\Facades\Log;
 use App\Models\StockLotAllocation;
+use Illuminate\Pagination\LengthAwarePaginator;
+
 class AdminOrderService
 {
     /**
@@ -24,13 +26,24 @@ class AdminOrderService
     }
 
 
-    public function getAllOrders()
+    /**
+     * Get all orders with pagination, including user and order items with variant details.
+     * Orders are sorted from newest to oldest.
+     *
+     * @param int $perPage The number of items to display per page.
+     * @return \Illuminate\Pagination\LengthAwarePaginator
+     */
+    public function getAllOrders(int $perPage = 15): LengthAwarePaginator
     {
-        $orders = Order::with(['user', 'orderItems.variant'])->latest()->get();
+        $orders = Order::with(['user', 'orderItems.variant'])
+                       ->latest()
+                       ->paginate($perPage); // Use paginate() instead of get()
 
+        // Apply image_url to each order item after pagination
         $orders->each(function ($order) {
             $order->orderItems->each(function ($item) {
-                $item->img  = $item->variant?->image_url;
+                // Use optional chaining for $item->variant to prevent errors if variant is null
+                $item->img = $item->variant?->image_url;
             });
         });
 

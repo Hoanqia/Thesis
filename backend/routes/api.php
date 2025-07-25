@@ -24,6 +24,8 @@ use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\PricingController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\StockLotController;
+use App\Http\Controllers\StatisticController;
+use App\Http\Controllers\RecommenderSettingsController;
 // use app\Http\Middleware\RoleMiddleware;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
@@ -55,6 +57,26 @@ Route::prefix('auth')->group(function () {
 Route::middleware(['jwt.auth'])->group(function () {
     Route::middleware('role:admin')->group(function (){
         Route::prefix('admin')->group(function () {
+
+            Route::post('/recommender/settings', [RecommenderSettingsController::class, 'update']); // Cập nhật nhiều
+            Route::get('/recommender/settings/{key}', [RecommenderSettingsController::class, 'show']); // Lấy một tham số
+            Route::put('/recommender/settings/{key}', [RecommenderSettingsController::class, 'updateSingle']); // Cập nhật một tham số
+            Route::patch('/recommender/settings/{key}', [RecommenderSettingsController::class, 'updateSingle']); // Cập nhật một tham số
+
+             Route::get('/dashboard-summary', [StatisticController::class, 'getDashboardSummary']);
+
+            // API cho Sales Trend Data (SalesChart)
+            Route::get('/sales-trend-data', [StatisticController::class, 'getSalesTrendData']);
+
+            // API cho Top Selling Products (TopSellingProducts)
+            Route::get('/top-selling-products', [StatisticController::class, 'getTopSellingProducts']);
+
+            // API cho Stock Alerts (LowStockAlerts)
+            Route::get('/stock-alerts', [StatisticController::class, 'getStockAlerts']);
+
+            // API cho Recent Activities (RecentActivities)
+            Route::get('/recent-activities', [StatisticController::class, 'getRecentActivities']);
+
 
 
                         // GET /api/stock-lots - Lấy danh sách lô hàng với bộ lọc và phân trang
@@ -230,6 +252,7 @@ Route::middleware(['jwt.auth'])->group(function () {
     
 }); // ngoặc xác thực api
 Route::get('/product/{productSlug}/similar',[RecommendationController::class,'getSimilarItems']);
+Route::get('/recommender/settings', [RecommenderSettingsController::class, 'index']);
 
 Route::post('/user-events',[UserEventController::class,'store']);
 Route::get('/search',[ProductController::class,'search']);

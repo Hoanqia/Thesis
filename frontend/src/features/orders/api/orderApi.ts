@@ -81,8 +81,23 @@ interface ApiResponse<T> {
   message: string;
   status: 'success' | 'error';
   data: T;
+  // Add pagination specific fields for paginated responses
+  pagination?: {
+    total: number;
+    per_page: number;
+    current_page: number;
+    last_page: number;
+    from: number;
+    to: number;
+    prev_page_url: string | null;
+    next_page_url: string | null;
+    // links?: any[]; // Optionally include if needed, but prev/next URLs are often sufficient
+  };
 }
-
+export interface PaginationParams {
+  page?: number;
+  per_page?: number;
+}
 export const customerOrderApi = {
 
    createPayment: async (
@@ -159,18 +174,27 @@ export const customerOrderApi = {
 };
 
 export const adminOrderApi = {
-  /**
-   * Lấy tất cả đơn hàng (mới nhất đến cũ nhất)
-   * GET /admin/orders
-   */
-  getAllOrders: async (): Promise<Order[]> => {
+ getAllOrders: async (params?: PaginationParams): Promise<ApiResponse<Order[]>> => {
+    let url = 'admin/orders';
+    const queryParams = new URLSearchParams();
+
+    if (params?.page) {
+      queryParams.append('page', params.page.toString());
+    }
+    if (params?.per_page) {
+      queryParams.append('per_page', params.per_page.toString());
+    }
+
+    if (queryParams.toString()) {
+      url += `?${queryParams.toString()}`;
+    }
+
     const response = await axiosRequest<ApiResponse<Order[]>>(
-      'admin/orders',
+      url,
       'GET'
     );
-    return response.data;
+    return response; // Return the entire response including pagination metadata
   },
-
   /**
    * Lấy chi tiết một đơn hàng theo ID
    * GET /admin/orders/{id}

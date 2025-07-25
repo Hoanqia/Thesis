@@ -20,18 +20,38 @@ class AdminOrderController extends Controller
 
     }
 
-    /**
+     /**
      * GET /admin/orders
-     * Lấy tất cả đơn hàng (mới nhất đến cũ nhất)
+     * Lấy tất cả đơn hàng (mới nhất đến cũ nhất) với phân trang
+     *
+     * @param \Illuminate\Http\Request $request
+     * @return \Illuminate\Http\JsonResponse
      */
-    public function index()
+    public function index(Request $request)
     {
         try {
-            $orders = $this->orderService->getAllOrders();
+            // Get 'per_page' from the query string, default to 15 if not provided
+            $perPage = $request->query('per_page', 15);
+
+            $orders = $this->orderService->getAllOrders((int) $perPage); // Cast to int to ensure it's a number
+
+            // When returning paginated data, it's often better to send the items
+            // and pagination metadata separately for clarity on the frontend.
             return response()->json([
                 'message' => 'Lấy dữ liệu thành công',
                 'status' => 'success',
-                'data'    => $orders
+                'data'    => $orders->items(), // Get the actual order data for the current page
+                'pagination' => [
+                    'total'        => $orders->total(),         // Total number of items
+                    'per_page'     => $orders->perPage(),       // Items per page
+                    'current_page' => $orders->currentPage(),   // Current page number
+                    'last_page'    => $orders->lastPage(),      // Last page number
+                    'from'         => $orders->firstItem(),     // Index of the first item on the current page
+                    'to'           => $orders->lastItem(),      // Index of the last item on the current page
+                    'prev_page_url' => $orders->previousPageUrl(), // URL for the previous page
+                    'next_page_url' => $orders->nextPageUrl(),     // URL for the next page
+                    // 'links'        => $orders->links()->toArray() // Optionally, include all pagination links
+                ]
             ], 200);
         } catch (\Exception $e) {
             Log::error("AdminOrderController@index error: " . $e->getMessage());

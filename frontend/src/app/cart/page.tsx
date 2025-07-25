@@ -16,6 +16,7 @@ import AddressList from "@/features/user_addresses/components/AddressList";
 import { addressApi, UserAdresss } from "@/features/user_addresses/api/addressApi";
 
 import { Variant, SpecValue } from "@/features/variants/api/variantApi";
+import PersonalizedRecommendationCarousel from '@/features/recommendations/components/PersonalizedRecommendationCarousel'; 
 
 
 export const formatSpecValue = (sv?: Partial<SpecValue>): string => {
@@ -261,7 +262,8 @@ export default function CartPage() {
   const toggleSelectAll = () =>
     setSelectedIds(allSelected ? [] : items.map((i) => i.id));
 
-  return (
+ return (
+  <> {/* Thêm React Fragment để bao bọc các phần tử ngang hàng */}
     <div className="container mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
       {/* ========== Cart items ========== */}
       <div className="lg:col-span-2 space-y-6">
@@ -313,7 +315,7 @@ export default function CartPage() {
                   <h3 className="font-semibold text-lg">
                     {item.variant.product.name}
                   </h3>
-                   {/* Hiển thị màu – RAM – storage */}
+                    {/* Hiển thị màu – RAM – storage */}
                     <p className="text-sm text-gray-500 mt-1">
                       {buildVariantLabel(item.variant)}
                     </p>
@@ -369,7 +371,7 @@ export default function CartPage() {
       {/* ========== Summary (chỉ của item được chọn + voucher) ========== */}
       <div className="bg-white border rounded-lg p-6 space-y-6 shadow">
 
-         {/* === Nút Chọn địa chỉ mặc định === */}
+          {/* === Nút Chọn địa chỉ mặc định === */}
         <button
           onClick={() => setIsAddressModalOpen(true)}
           className="w-full flex justify-between items-center py-3 bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-100"
@@ -382,7 +384,7 @@ export default function CartPage() {
         </button>
 
         {/* CHỈ giữ nút “Chọn voucher” */}
-       <button
+        <button
           onClick={() => setIsVoucherModalOpen(true)}
           className="w-full flex justify-center items-center py-3 bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-100"
         >
@@ -573,7 +575,7 @@ export default function CartPage() {
           </div>
         </div>
       )}
-         {/* ========= Address Modal ========= */}
+        {/* ========= Address Modal ========= */}
       {isAddressModalOpen && (
         <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex items-center justify-center">
           <div className="bg-white w-full max-w-lg rounded-lg overflow-hidden shadow-lg">
@@ -595,7 +597,12 @@ export default function CartPage() {
           </div>
         </div>
       )}
+    </div> {/* <-- KẾT THÚC CỦA DIV CHỨA GRID LAYOUT */}
 
-    </div>
-  );
+    {/* DI CHUYỂN PersonalizedRecommendationCarousel RA NGOÀI DIV GRID NÀY */}
+    <section className="container mx-auto px-4 mt-8"> {/* Thêm mt-8 để tạo khoảng cách với phần trên */}
+      <PersonalizedRecommendationCarousel title="Sản phẩm gợi ý dành riêng cho bạn" />
+    </section>
+  </> // KẾT THÚC React Fragment
+);
 }

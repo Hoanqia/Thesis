@@ -11,6 +11,8 @@ class ItemSimilarity extends Model
         'product_id_1',
         'product_id_2',
         'score',
+        'cf_score',
+        'content_score',
     ];
     protected $table = 'item_similarity';
     protected $keyType = 'int';

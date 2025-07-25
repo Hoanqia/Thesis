@@ -87,13 +87,15 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     { name: "Sản phẩm", icon: <Package size={20} />, href: "/admin/products" },
     { name: "Đơn mua hàng", icon: <Sliders size={20} />, href: "/admin/orders" },
     { name: "Nhà cung cấp", icon: <MapPin size={20} />, href: "/admin/suppliers" },
+    { name: "Đơn nhập hàng", icon: <Settings size={20} />, href: "/admin/purchase_orders" },
+
     { name: "Phiếu nhập hàng", icon: <FileText size={20} />, href: "/admin/grns" },
-    { name: "Đơn đặt hàng", icon: <Settings size={20} />, href: "/admin/purchase_orders" },
     { name: "Quản lý giá", icon: <Sliders size={20} />, href: "/admin/bulk-price-update" },
     { name: "Lô hàng", icon: <Sliders size={20} />, href: "/admin/stocklots" },
 
     { name: "Đánh giá", icon: <FileText size={20} />, href: "/admin/reviews" },
     { name: "Voucher", icon: <ListChecks size={20} />, href: "/admin/vouchers" },
+    { name: "Gợi ý", icon: <ListChecks size={20} />, href: "/admin/recommender-settings" },
 
   ];
 
@@ -105,7 +107,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       {/* Sidebar */}
       <aside className="w-64 bg-gray-800 text-gray-100 flex flex-col">
         <div className="flex items-center justify-center h-16 border-b border-gray-700 font-bold text-xl">
-          E-Shop 
+         <a href="/admin">DXM</a> 
         </div>
 
         <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-1">

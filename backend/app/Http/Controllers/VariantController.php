@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Log;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
 use Illuminate\Support\Facades\Storage;
-
+// Nếu bạn muốn sử dụng trực tiếp Cloudinary SDK client:
 use Illuminate\Http\UploadedFile;
 use App\Models\Variant;
 use Image;
@@ -21,11 +21,11 @@ class VariantController extends Controller
     public function __construct(VariantService $variantService)
     {
         $this->variantService = $variantService;
+
     }
 
    public function store(Request $request){
                         \Log::info('All request input:', $request->all());
-        try {
             $validated = $request->validate([
                 'product_id' => 'required|exists:products,id',
                 // 'sku'        => 'nullable',
@@ -48,7 +48,7 @@ class VariantController extends Controller
                 $imageName = time() . '_' . $image->getClientOriginalName();
                 $image->storeAs('uploads/variants', $imageName, 'public');
                 $validated['image'] = 'uploads/variants/' . $imageName;
-            }
+            
 
                     // Gọi service xử lý
             $variant = $this->variantService->createVariant($validated);
@@ -58,10 +58,12 @@ class VariantController extends Controller
                 'status' => 'success',
                 'data' => $variant,
             ], 201);
-        } catch (\Exception $e) {
-            return ApiExceptionHandler::handleException($e);
-        }
+        
     }
+}
+
+
+     
 
     public function getAll(){
         try {

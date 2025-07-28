@@ -11,47 +11,74 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log; // Đã thêm để ghi log lỗi
 use App\Models\InventoryTransaction;
+use NumberFormatter;
 class StatisticService
 {
     private const DEFAULT_MIN_STOCK_THRESHOLD = 10;
 
-    /**
+     /**
      * Lấy tóm tắt các chỉ số chính cho dashboard.
      *
      * @return array
      */
     public function getDashboardSummary(): array
     {
-        // Lấy múi giờ của ứng dụng từ cấu hình.
-        // Carbon::today() (không có đối số) sẽ sử dụng múi giờ được cấu hình trong config/app.php
-        // (mà nó lấy từ APP_TIMEZONE trong .env).
-        $today = Carbon::today(); // Đảm bảo sử dụng múi giờ của APP_TIMEZONE
+        // Lấy múi giờ của ứng dụng từ cấu hình (APP_TIMEZONE trong .env).
+        $today = Carbon::today(); // Ngày hiện tại
+        $yesterday = Carbon::yesterday(); // Ngày hôm qua
 
+        // --- ĐỊNH NGHĨA TẤT CẢ CÁC BIẾN "NGÀY HÔM QUA" TRƯỚC KHI SỬ DỤNG ---
+
+        // Tổng giá trị tồn kho của ngày hôm qua (tổng các lô còn tồn đến cuối ngày hôm qua)
+        $yesterdayInventoryValue = StockLot::query()
+            ->select(DB::raw('SUM((quantity_in - quantity_out) * unit_cost) as total_value'))
+            ->whereRaw('(quantity_in - quantity_out) > 0')
+            ->where('created_at', '<=', $yesterday->endOfDay())
+            ->value('total_value') ?? 0;
+
+        // Doanh thu hôm qua
+        $yesterdayRevenue = Order::query()
+            ->whereDate('created_at', $yesterday)
+            ->where('status', 'completed')
+            ->sum('total_price') ?? 0;
+
+        // Lợi nhuận hôm qua
+        $yesterdayProfit = Order::query()
+            ->whereDate('created_at', $yesterday)
+            ->where('status', 'completed')
+            ->sum(DB::raw('total_price - total_cogs')) ?? 0;
+
+        // Số lượng đơn hàng mới hôm qua
+        $newOrdersYesterday = Order::query()
+            ->whereDate('created_at', $yesterday)
+            ->count();
+
+        // --- BẮT ĐẦU KHỐI TRY-CATCH CHO CÁC TÍNH TOÁN NGÀY HIỆN TẠI VÀ XU HƯỚNG ---
         try {
-            // 1. Tổng giá trị tồn kho (Total Inventory Value)
+            // 1. Tổng giá trị tồn kho (Total Inventory Value) hiện tại
             $totalInventoryValue = StockLot::query()
                 ->select(DB::raw('SUM((quantity_in - quantity_out) * unit_cost) as total_value'))
                 ->whereRaw('(quantity_in - quantity_out) > 0')
                 ->value('total_value') ?? 0;
 
             // 2. Doanh thu hôm nay (Today's Revenue)
-            // CHÚ Ý: Chỉ tính các đơn hàng có trạng thái 'completed'.
+            // Chỉ tính các đơn hàng có trạng thái 'completed' và được tạo trong ngày hôm nay.
             $todayRevenue = Order::query()
-                ->whereDate('created_at', $today) // So sánh với ngày hiện tại theo APP_TIMEZONE
+                ->whereDate('created_at', $today)
                 ->where('status', 'completed')
                 ->sum('total_price') ?? 0;
 
             // 3. Lợi nhuận hôm nay (Today's Profit)
-            // CHÚ Ý: Cũng chỉ tính các đơn hàng có trạng thái 'completed'.
+            // Chỉ tính các đơn hàng có trạng thái 'completed' và được tạo trong ngày hôm nay.
             $todayProfit = Order::query()
-                ->whereDate('created_at', $today) // So sánh với ngày hiện tại theo APP_TIMEZONE
+                ->whereDate('created_at', $today)
                 ->where('status', 'completed')
                 ->sum(DB::raw('total_price - total_cogs')) ?? 0;
 
             // 4. Số lượng đơn hàng mới (New Orders Today)
             // Lấy số lượng đơn hàng được tạo trong ngày hôm nay, bất kể trạng thái.
             $newOrdersToday = Order::query()
-                ->whereDate('created_at', $today) // So sánh với ngày hiện tại theo APP_TIMEZONE
+                ->whereDate('created_at', $today)
                 ->count();
 
             // 5. Số sản phẩm cần nhập thêm (Low Stock Items Count)
@@ -59,29 +86,82 @@ class StatisticService
                 ->where('stock', '<', self::DEFAULT_MIN_STOCK_THRESHOLD)
                 ->count();
 
-            $formatter = new \NumberFormatter('vi_VN', \NumberFormatter::CURRENCY);
-            $formatter->setTextAttribute(\NumberFormatter::CURRENCY_CODE, 'VND');
-            $formatter->setAttribute(\NumberFormatter::FRACTION_DIGITS, 0);
+            // --- Tính toán các giá trị xu hướng (giờ đây các biến "yesterday" đã được định nghĩa) ---
+            $totalInventoryValueTrend = $this->calculatePercentageTrend($totalInventoryValue, $yesterdayInventoryValue);
+            $todayRevenueTrend = $this->calculatePercentageTrend($todayRevenue, $yesterdayRevenue);
+            $todayProfitTrend = $this->calculatePercentageTrend($todayProfit, $yesterdayProfit);
+            $newOrdersTrend = $this->calculateAbsoluteTrend($newOrdersToday, $newOrdersYesterday, 'đơn');
+
+            // --- Định dạng tiền tệ và số ---
+            $formatter = new NumberFormatter('vi_VN', NumberFormatter::CURRENCY);
+            $formatter->setTextAttribute(NumberFormatter::CURRENCY_CODE, 'VND');
+            $formatter->setAttribute(NumberFormatter::FRACTION_DIGITS, 0);
 
             return [
                 'totalInventoryValue' => (float) $totalInventoryValue,
                 'totalInventoryValueFormatted' => $formatter->format($totalInventoryValue),
+                'totalInventoryValueTrend' => $totalInventoryValueTrend,
+
                 'todayRevenue' => (float) $todayRevenue,
                 'todayRevenueFormatted' => $formatter->format($todayRevenue),
+                'todayRevenueTrend' => $todayRevenueTrend,
+
                 'todayProfit' => (float) $todayProfit,
                 'todayProfitFormatted' => $formatter->format($todayProfit),
+                'todayProfitTrend' => $todayProfitTrend,
+
                 'newOrdersToday' => $newOrdersToday,
+                'newOrdersTodayFormatted' => number_format($newOrdersToday),
+                'newOrdersTrend' => $newOrdersTrend,
+
                 'lowStockItemsCount' => $lowStockItemsCount,
-                'totalInventoryValueTrend' => '+1.2%',
-                'todayRevenueTrend' => '-0.5%',
-                'newOrdersTrend' => '+15 đơn',
+                'lowStockItemsCountFormatted' => number_format($lowStockItemsCount),
             ];
+
         } catch (\Exception $e) {
             Log::error("StatisticService@getDashboardSummary error: " . $e->getMessage());
             throw $e; // Ném lại ngoại lệ để controller xử lý
         }
     }
 
+
+     /**
+     * Tính toán xu hướng phần trăm thay đổi.
+     *
+     * @param float $currentValue
+     * @param float $previousValue
+     * @return string
+     */
+    protected function calculatePercentageTrend(float $currentValue, float $previousValue): string
+    {
+        if ($previousValue == 0) {
+            if ($currentValue > 0) {
+                return '+∞%'; // Tăng vô hạn
+            }
+            return '0%'; // Không có thay đổi
+        }
+
+        $change = $currentValue - $previousValue;
+        $percentage = ($change / $previousValue) * 100;
+
+        $sign = ($percentage >= 0) ? '+' : '';
+        return $sign . round($percentage, 2) . '%';
+    }
+
+    /**
+     * Tính toán xu hướng thay đổi tuyệt đối.
+     *
+     * @param int $currentValue
+     * @param int $previousValue
+     * @param string $unit Đơn vị (e.g., 'đơn', 'sản phẩm')
+     * @return string
+     */
+    protected function calculateAbsoluteTrend(int $currentValue, int $previousValue, string $unit = ''): string
+    {
+        $change = $currentValue - $previousValue;
+        $sign = ($change >= 0) ? '+' : '';
+        return $sign . abs($change) . ' ' . $unit;
+    }
     /**
      * Lấy dữ liệu cho biểu đồ doanh thu.
      * Tương ứng với: GET /api/reports/sales-trend-data

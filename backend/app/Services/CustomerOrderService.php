@@ -11,16 +11,18 @@ use App\Models\ShippingMethod;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\Services\UserEventService;
-use App\Jobs\SendOrderConfirmationEmail; // Import Job gửi email
+use App\Jobs\SendOrderConfirmationEmail; // Import Job gửi 
+use App\Services\NotificationService;
 use Exception;
 class CustomerOrderService
 {   
 
      protected $userEventService;
-
-    public function __construct(UserEventService $userEventService)
+    protected $notificationService;
+    public function __construct(UserEventService $userEventService, NotificationService $notificationService)
     {
         $this->userEventService = $userEventService;
+        $this->notificationService = $notificationService;
     }
 
 
@@ -187,7 +189,20 @@ class CustomerOrderService
             }
 
             SendOrderConfirmationEmail::dispatch($order->load('orderItems', 'user'));
+             if ($user) {
+            // Tạo thông báo cho người dùng
+            $this->notificationService->createNotification(
+                $user,
+                "order",
+                "Đặt hàng thành công. Mã đơn hàng ." .$order->id,
+            );
+        }
 
+        // Tạo thông báo cho admin
+        $this->notificationService->createAdminNotification(
+            "order",
+            "Đơn đặt hàng mới từ " . ($user->name ?? 'Khách hàng ẩn danh') . ". Mã đơn hàng " . $order->id,
+        );
             return $order->load('orderItems');
         });
     }
@@ -223,6 +238,19 @@ class CustomerOrderService
             $item->variant->increment('stock', $item->quantity);
         }
 
+        
+            // Tạo thông báo cho người dùng
+            $this->notificationService->createNotification(
+                Auth::user(),
+                "order",
+                "Đặt hàng đã bị hủy. Mã đơn hàng ." .$order->id,
+            );
+        
+
+        $this->notificationService->createAdminNotification(
+            "order",
+            "Đơn hàng bị hủy. "."Mã đơn hàng: " . $order->id,
+        );
         return $order;
     }
 
@@ -239,7 +267,10 @@ class CustomerOrderService
         }
 
         $order->update($updateData);
-
+         $this->notificationService->createAdminNotification(
+            "order",
+            "Đơn hàng hoàn thành. "."Mã đơn hàng: " . $order->id,
+        );
         return $order;
     }
 }

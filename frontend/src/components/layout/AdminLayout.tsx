@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import {
   User, Layers, Tag, Package, Sliders, ListChecks,
   Settings, MapPin, FileText, Bell, LogOut, Lock, Info,
+  X,
 } from "lucide-react";
 import {
   Popover, PopoverTrigger, PopoverContent,
@@ -17,6 +18,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { handleLogout } from "@/features/auth/api/logout";
 import { axiosRequest } from "@/lib/axiosRequest";
+import { NotificationsApi, Notification, ApiResponse } from '@/features/notifications/api/notificationApi'; // Điều chỉnh đường dẫn nếu cần
 
 type AdminLayoutProps = {
   children: ReactNode;
@@ -28,43 +30,147 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const [loading, setLoading] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [userName, setUserName] = useState("Admin"); // State để lưu tên người dùng
+  const [unreadNotifications, setUnreadNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [showNotificationPopover, setShowNotificationPopover] = useState(false);
 
+//   useEffect(() => {
+//   async function checkAuth() {
+//     try {
+//         const res = await axiosRequest("auth/me", "GET");
+
+//     console.log("auth/me response:", res);
+
+//     if (!res || !res.user || !res.user.role) {
+//       setIsLoggedIn(false);
+//       setIsAdmin(false);
+//       router.push("/login");
+//       return;
+//     }
+
+//     setIsLoggedIn(true);
+//     const role = res.user.role.toLowerCase();
+//     console.log("User role:", role);
+
+//     if (role === "admin" || role === "ladmin") {
+//       setIsAdmin(true);
+//     } else {
+//       setIsAdmin(false);
+//       router.push("/");
+//     }
+//     } catch (error) {
+//       setIsLoggedIn(false);
+//       setIsAdmin(false);
+//       router.push("/login");
+//     } finally {
+//       setLoading(false);
+//     }
+//   }
+
+//   checkAuth();
+// }, [router]);
+
+   // --- Check Auth & Fetch Notifications Effect ---
   useEffect(() => {
-  async function checkAuth() {
-    try {
+    let notificationInterval: NodeJS.Timeout | null = null; // Biến để lưu ID của interval
+
+    async function checkAuthAndFetchNotifications() {
+      try {
         const res = await axiosRequest("auth/me", "GET");
+        console.log("auth/me response:", res);
 
-    console.log("auth/me response:", res);
+        if (!res || !res.user || !res.user.role) {
+          setIsLoggedIn(false);
+          setIsAdmin(false);
+          router.push("/login");
+          return;
+        }
 
-    if (!res || !res.user || !res.user.role) {
-      setIsLoggedIn(false);
-      setIsAdmin(false);
-      router.push("/login");
-      return;
+        setIsLoggedIn(true);
+        setUserName(res.user.name || "Admin"); // Lấy tên người dùng từ response
+        const role = res.user.role.toLowerCase();
+        console.log("User role:", role);
+
+        if (role === "admin" || role === "ladmin") {
+          setIsAdmin(true);
+          // Nếu là admin, bắt đầu fetch thông báo
+          fetchUserNotifications();
+          // Cài đặt polling cho thông báo
+          notificationInterval = setInterval(fetchUserNotifications, 30000); // Mỗi 30 giây
+        } else {
+          setIsAdmin(false);
+          router.push("/"); // Chuyển hướng nếu không phải admin
+        }
+      } catch (error) {
+        console.error("Lỗi khi xác thực hoặc gọi /auth/me:", error);
+        setIsLoggedIn(false);
+        setIsAdmin(false);
+        router.push("/login");
+      } finally {
+        setLoading(false);
+      }
     }
 
-    setIsLoggedIn(true);
-    const role = res.user.role.toLowerCase();
-    console.log("User role:", role);
+    // Hàm riêng để fetch thông báo
+    const fetchUserNotifications = async () => {
+      try {
+        const notificationRes: ApiResponse<Notification[]> = await NotificationsApi.getUnread();
+        setUnreadNotifications(notificationRes.data);
+        setUnreadCount(notificationRes.unread_count || 0);
+      } catch (notificationError) {
+        console.error('Lỗi khi tải thông báo chưa đọc:', notificationError);
+        setUnreadNotifications([]);
+        setUnreadCount(0);
+      }
+    };
 
-    if (role === "admin" || role === "ladmin") {
-      setIsAdmin(true);
-    } else {
-      setIsAdmin(false);
-      router.push("/");
-    }
+    checkAuthAndFetchNotifications();
+
+    // Cleanup function để xóa interval khi component unmount
+    return () => {
+      if (notificationInterval) {
+        clearInterval(notificationInterval);
+      }
+    };
+  }, [router]); // Dependencies của useEffect
+
+  // --- Notification Handlers ---
+  const handleMarkNotificationAsRead = async (notificationId: number) => {
+    try {
+      await NotificationsApi.markAsRead(notificationId);
+      // Re-fetch unread notifications to update the count and list
+      const res: ApiResponse<Notification[]> = await NotificationsApi.getUnread();
+      setUnreadNotifications(res.data);
+      setUnreadCount(res.unread_count || 0);
     } catch (error) {
-      setIsLoggedIn(false);
-      setIsAdmin(false);
-      router.push("/login");
-    } finally {
-      setLoading(false);
+      console.error('Lỗi khi đánh dấu thông báo đã đọc:', error);
     }
-  }
+  };
 
-  checkAuth();
-}, [router]);
+  const handleMarkAllNotificationsAsRead = async () => {
+    try {
+      await NotificationsApi.markAllAsRead();
+      // Re-fetch unread notifications to update the count and list
+      const res: ApiResponse<Notification[]> = await NotificationsApi.getUnread();
+      setUnreadNotifications(res.data);
+      setUnreadCount(res.unread_count || 0);
+    } catch (error) {
+      console.error('Lỗi khi đánh dấu tất cả thông báo đã đọc:', error);
+    }
+  };
 
+  const handleDeleteNotification = async (notificationId: number) => {
+    try {
+      await NotificationsApi.delete(notificationId);
+      // Re-fetch unread notifications to update the count and list
+      const res: ApiResponse<Notification[]> = await NotificationsApi.getUnread();
+      setUnreadNotifications(res.data);
+      setUnreadCount(res.unread_count || 0);
+    } catch (error) {
+      console.error('Lỗi khi xóa thông báo:', error);
+    }
+  };
 
   if (loading) {
     return (
@@ -99,8 +205,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
   ];
 
-  const unreadNotifications = 5;
-  const userName = "Admin";
+  
 
   return (
     <div className="flex min-h-screen bg-gray-50 text-gray-900">
@@ -128,25 +233,89 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       <div className="flex-1 flex flex-col">
         {/* Navbar */}
         <header className="flex items-center justify-end bg-white h-16 px-6 shadow-md gap-4">
-          <Popover>
+                  {/* Notification Bell with Popover */}
+          <Popover open={showNotificationPopover} onOpenChange={setShowNotificationPopover}>
             <PopoverTrigger asChild>
               <button className="relative focus:outline-none">
                 <Bell className="text-gray-700" size={22} />
-                {unreadNotifications > 0 && (
+                {unreadCount > 0 && (
                   <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                    {unreadNotifications}
+                    {unreadCount}
                   </span>
                 )}
               </button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-80 p-4">
-              <p className="text-sm font-semibold mb-2">Thông báo mới</p>
-              <ul className="text-sm text-gray-700 space-y-2">
-                <li>Bạn có 5 đánh giá mới.</li>
-                <li>1 sản phẩm đang chờ duyệt.</li>
+            <PopoverContent align="end" className="w-80 p-0">
+              <div className="py-2 px-3 text-sm text-gray-800 font-semibold border-b">
+                Thông báo mới
+                {unreadCount > 0 && (
+                  <button
+                    onClick={handleMarkAllNotificationsAsRead}
+                    className="ml-2 px-2 py-0.5 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                  >
+                    Đánh dấu tất cả đã đọc
+                  </button>
+                )}
+              </div>
+              <ul className="max-h-60 overflow-y-auto">
+                {unreadNotifications.length === 0 ? (
+                  <li className="px-4 py-2 text-sm text-gray-500">Không có thông báo mới.</li>
+                ) : (
+                  unreadNotifications.map((notif) => (
+                    <li key={notif.id} className="border-b last:border-b-0">
+                      <div className="flex justify-between items-center px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer">
+                        <div className="flex-1">
+                          <p className="font-medium">{notif.content}</p>
+                          {notif.link && (
+                            <a
+                              href={notif.link}
+                              className="text-blue-600 hover:underline text-xs"
+                              onClick={() => {
+                                handleMarkNotificationAsRead(notif.id); // Đánh dấu đã đọc khi click vào link
+                                setShowNotificationPopover(false); // Đóng popover
+                              }}
+                            >
+                              Xem chi tiết
+                            </a>
+                          )}
+                          <p className="text-xs text-gray-500 mt-1">
+                            {new Date(notif.created_at).toLocaleString('vi-VN')}
+                          </p>
+                        </div>
+                        <div className="flex space-x-1 ml-2">
+                          {!notif.is_read && ( // Chỉ hiển thị nút này nếu chưa đọc
+                            <button
+                              onClick={() => handleMarkNotificationAsRead(notif.id)}
+                              className="text-green-500 hover:text-green-700 p-1 rounded-full hover:bg-gray-200"
+                              title="Đánh dấu đã đọc"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check-circle"><path d="M22 11.08V12a10 10 0 1 1-5.93-8.5"></path><path d="m9 11 3 3L22 4"></path></svg>
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDeleteNotification(notif.id)}
+                            className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-gray-200"
+                            title="Xóa thông báo"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </li>
+                  ))
+                )}
               </ul>
+              <div className="py-2 px-3 text-sm text-center border-t">
+                <a href="/admin/notifications" className="text-blue-600 hover:underline"
+                  onClick={() => setShowNotificationPopover(false)} // Đóng popover khi click
+                >
+                  Xem tất cả thông báo
+                </a>
+              </div>
             </PopoverContent>
           </Popover>
+
+
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

@@ -12,7 +12,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Pagination\LengthAwarePaginator; // <--- Đảm bảo dòng này đã được import đúng
 use App\Models\StockLotAllocation; // <--- Import model mới
-
+use App\Services\StockLotService;
 class StockLotService
 {   
 

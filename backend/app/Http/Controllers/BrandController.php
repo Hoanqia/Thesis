@@ -54,7 +54,7 @@ class BrandController extends Controller
                 $query->where('cat_id',$category->id);
             })->get();
             if($brands->isEmpty()){
-                return response()->json()->noContent();
+                return response()->noContent();
             }
             return response()->json([
                 'message' => 'Lấy dữ liệu thành công',

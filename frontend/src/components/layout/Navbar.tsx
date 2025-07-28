@@ -26,6 +26,7 @@ import {
 import { Category , fetchCategories} from "@/features/categories/api/categoryApi";
 import { useCartStore } from "@/store/cartStore";
 import { cartApi } from "@/features/cart/api/cartApi";
+import { NotificationsApi, Notification, ApiResponse } from '@/features/notifications/api/notificationApi'; // Điều chỉnh đường dẫn nếu cần
 
 export default function Navbar() {
 
@@ -64,7 +65,9 @@ export default function Navbar() {
       });
       return map;
     }, [categories]);
-
+  const [unreadNotifications, setUnreadNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [showNotificationPopover, setShowNotificationPopover] = useState(false); // State để kiểm soát Popover thông báo
 
   const logoutHandler = async () => {
   try {
@@ -133,27 +136,76 @@ export default function Navbar() {
   }, [q]); // Rerun effect when q changes
 
 
-  //  // --- Thêm useEffect để debounce và gọi API tìm kiếm ---
-  // useEffect(() => {
-  //   const delayDebounceFn = setTimeout(async () => {
-  //     if (q.length > 2) { // Chỉ tìm kiếm khi độ dài query > 2 ký tự
-  //       try {
-  //         const results = await searchProduct(q);
-  //         setSearchResults(results);
-  //         setShowSearchResults(true); // Hiển thị popover khi có kết quả
-  //       } catch (error) {
-  //         console.error("Lỗi khi tìm kiếm sản phẩm:", error);
-  //         setSearchResults([]);
-  //         setShowSearchResults(false);
-  //       }
-  //     } else {
-  //       setSearchResults([]);
-  //       setShowSearchResults(false); // Ẩn popover nếu query quá ngắn hoặc rỗng
-  //     }
-  //   }, 300); // Debounce 300ms
+  // --- Fetch Notifications when logged in ---
+  useEffect(() => {
+    let notificationInterval: NodeJS.Timeout | null = null;
 
-  //   return () => clearTimeout(delayDebounceFn); // Clear timeout khi component unmount hoặc q thay đổi
-  // }, [q]); // Chạy lại useEffect khi q thay đổi
+    const fetchUserNotifications = async () => {
+      if (isLoggedIn) {
+        try {
+          const res: ApiResponse<Notification[]> = await NotificationsApi.getUnread();
+          setUnreadNotifications(res.data);
+          setUnreadCount(res.unread_count || 0);
+        } catch (error) {
+          console.error('Lỗi khi tải thông báo chưa đọc:', error);
+          // Có thể đặt unreadCount về 0 hoặc hiển thị thông báo lỗi trên UI
+          setUnreadNotifications([]);
+          setUnreadCount(0);
+        }
+      } else {
+        setUnreadNotifications([]); // Clear notifications if not logged in
+        setUnreadCount(0);
+      }
+    };
+
+    fetchUserNotifications(); // Fetch immediately on login status change
+
+    // Optional: Poll for new notifications
+    if (isLoggedIn) {
+      notificationInterval = setInterval(fetchUserNotifications, 30000); // Poll every 30 seconds
+    }
+
+    return () => {
+      if (notificationInterval) {
+        clearInterval(notificationInterval); // Clear interval on component unmount or logout
+      }
+    };
+  }, [isLoggedIn]); // Re-run when isLoggedIn status changes
+  const handleMarkNotificationAsRead = async (notificationId: number) => {
+    try {
+      await NotificationsApi.markAsRead(notificationId);
+      // Re-fetch unread notifications to update the count and list
+      const res: ApiResponse<Notification[]> = await NotificationsApi.getUnread();
+      setUnreadNotifications(res.data);
+      setUnreadCount(res.unread_count || 0);
+    } catch (error) {
+      console.error('Lỗi khi đánh dấu thông báo đã đọc:', error);
+    }
+  };
+
+  const handleMarkAllNotificationsAsRead = async () => {
+    try {
+      await NotificationsApi.markAllAsRead();
+      // Re-fetch unread notifications to update the count and list
+      const res: ApiResponse<Notification[]> = await NotificationsApi.getUnread();
+      setUnreadNotifications(res.data);
+      setUnreadCount(res.unread_count || 0);
+    } catch (error) {
+      console.error('Lỗi khi đánh dấu tất cả thông báo đã đọc:', error);
+    }
+  };
+
+  const handleDeleteNotification = async (notificationId: number) => {
+    try {
+      await NotificationsApi.delete(notificationId);
+      // Re-fetch unread notifications to update the count and list
+      const res: ApiResponse<Notification[]> = await NotificationsApi.getUnread();
+      setUnreadNotifications(res.data);
+      setUnreadCount(res.unread_count || 0);
+    } catch (error) {
+      console.error('Lỗi khi xóa thông báo:', error);
+    }
+  };
 
   return (
     <header className="bg-white shadow-md">
@@ -280,29 +332,93 @@ export default function Navbar() {
         )}
 </Link>
 
-          {/* Notification Bell with Popover */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <button
-                className="ml-4 text-gray-700 hover:text-blue-500 relative"
-                aria-haspopup="true"
-              >
-                <Bell className="w-5 h-5" />
-                <span className="absolute -top-1 -right-2 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
-                  3
-                </span>
-              </button>
-            </PopoverTrigger>
+ {/* Notification Bell with Popover (Conditional Rendering based on isLoggedIn) */}
+          {isLoggedIn && (
+            <Popover open={showNotificationPopover} onOpenChange={setShowNotificationPopover}>
+              <PopoverTrigger asChild>
+                <button
+                  className="ml-4 text-gray-700 hover:text-blue-500 relative"
+                  aria-haspopup="true"
+                >
+                  <Bell className="w-5 h-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-2 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+              </PopoverTrigger>
 
-            <PopoverContent className="w-72 p-0">
-              <div className="py-2 px-3 text-sm text-gray-800 font-semibold border-b">Thông báo</div>
-              <ul className="max-h-60 overflow-y-auto">
-                <li className="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer">Đơn hàng #1234 đã được xác nhận.</li>
-                <li className="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer">Bạn có mã giảm giá mới.</li>
-                <li className="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer">Sản phẩm bạn yêu thích đã giảm giá.</li>
-              </ul>
-            </PopoverContent>
-          </Popover>
+              <PopoverContent className="w-72 p-0">
+                <div className="py-2 px-3 text-sm text-gray-800 font-semibold border-b">
+                  Thông báo của bạn
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={handleMarkAllNotificationsAsRead}
+                      className="ml-2 px-2 py-0.5 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                    >
+                      Đọc tất cả
+                    </button>
+                  )}
+                </div>
+                <ul className="max-h-60 overflow-y-auto">
+                  {unreadNotifications.length === 0 ? (
+                    <li className="px-4 py-2 text-sm text-gray-500">Không có thông báo mới.</li>
+                  ) : (
+                    unreadNotifications.map((notif) => (
+                      <li key={notif.id} className="border-b last:border-b-0">
+                        <div className="flex justify-between items-center px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer">
+                          <div className="flex-1">
+                            <p className="font-medium">{notif.content}</p>
+                            {notif.link && (
+                              <Link
+                                href={notif.link}
+                                className="text-blue-600 hover:underline text-xs"
+                                onClick={() => {
+                                  handleMarkNotificationAsRead(notif.id); // Đánh dấu đã đọc khi click vào link
+                                  setShowNotificationPopover(false); // Đóng popover
+                                }}
+                              >
+                                Xem chi tiết
+                              </Link>
+                            )}
+                            <p className="text-xs text-gray-500 mt-1">
+                              {new Date(notif.created_at).toLocaleString('vi-VN')}
+                            </p>
+                          </div>
+                          <div className="flex space-x-1 ml-2">
+                            {!notif.is_read && (
+                              <button
+                                onClick={() => handleMarkNotificationAsRead(notif.id)}
+                                className="text-green-500 hover:text-green-700 p-1 rounded-full hover:bg-gray-200"
+                                title="Đánh dấu đã đọc"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check-circle"><path d="M22 11.08V12a10 10 0 1 1-5.93-8.5"></path><path d="m9 11 3 3L22 4"></path></svg>
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleDeleteNotification(notif.id)}
+                              className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-gray-200"
+                              title="Xóa thông báo"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </li>
+                    ))
+                  )}
+                </ul>
+                <div className="py-2 px-3 text-sm text-center border-t">
+                  <Link href="/notifications" className="text-blue-600 hover:underline"
+                    onClick={() => setShowNotificationPopover(false)} // Đóng popover khi click
+                  >
+                    Xem tất cả thông báo
+                  </Link>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
 
           {/* User dropdown or Login button */}
           {isLoggedIn ? (

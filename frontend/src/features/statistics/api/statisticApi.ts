@@ -5,21 +5,40 @@ import { axiosRequest } from '@/lib/axiosRequest'; // Import axiosRequest đã c
 // 1. INTERFACES (Định nghĩa cấu trúc dữ liệu trả về từ API)
 // ==========================================================
 
-// Giao diện cho Dashboard Summary
+// // Giao diện cho Dashboard Summary
+// export interface DashboardSummary {
+//   totalInventoryValue: number;
+//   totalInventoryValueFormatted: string;
+//   todayRevenue: number;
+//   todayRevenueFormatted: string;
+//   todayProfit: string;
+//   todayProfitFormatted: string
+//   newOrdersToday: number;
+//   lowStockItemsCount: number;
+//   totalInventoryValueTrend: string; // Dữ liệu dummy từ backend PHP
+//   todayRevenueTrend: string;      // Dữ liệu dummy từ backend PHP
+//   newOrdersTrend: string;         // Dữ liệu dummy từ backend PHP
+// }
 export interface DashboardSummary {
   totalInventoryValue: number;
   totalInventoryValueFormatted: string;
+  totalInventoryValueTrend: string; // Đã được tính toán động từ backend PHP
+
   todayRevenue: number;
   todayRevenueFormatted: string;
-  todayProfit: string;
-  todayProfitFormatted: string
-  newOrdersToday: number;
-  lowStockItemsCount: number;
-  totalInventoryValueTrend: string; // Dữ liệu dummy từ backend PHP
-  todayRevenueTrend: string;      // Dữ liệu dummy từ backend PHP
-  newOrdersTrend: string;         // Dữ liệu dummy từ backend PHP
-}
+  todayRevenueTrend: string; // Đã được tính toán động từ backend PHP
 
+  todayProfit: number; // Đã sửa từ string sang number
+  todayProfitFormatted: string;
+  todayProfitTrend: string; // Đã thêm vào interface, được tính toán động từ backend PHP
+
+  newOrdersToday: number;
+  newOrdersTodayFormatted: string; // Đã thêm vào interface
+  newOrdersTrend: string; // Đã được tính toán động từ backend PHP
+
+  lowStockItemsCount: number;
+  lowStockItemsCountFormatted: string; // Đã thêm vào interface
+}
 export interface SalesTrendData {
   labels: string[];
   salesValues: number[]; // Đổi tên từ 'values' để rõ nghĩa hơn

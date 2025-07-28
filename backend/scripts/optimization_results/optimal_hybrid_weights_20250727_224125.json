@@ -1,0 +1,18 @@
+{
+    "optimal_implicit_weights": {
+        "view": 0.13905775016180427,
+        "add_to_cart": 0.5781733772037183,
+        "wishlist": 0.2867380416844064,
+        "purchase": 1.0
+    },
+    "optimal_hybrid_alpha": 0.838219281844869,
+    "optimal_cold_start_threshold": 4,
+    "optimal_frequency_decay_factor": 0.01,
+    "optimal_final_hybrid_threshold": 0.11197977460177116,
+    "optimal_cosine_threshold": 0.03744876104238873,
+    "optimal_num_similar_items": 61,
+    "optimal_top_n_recommendations": 10,
+    "optimal_min_alpha_cold_start": 0.45510069133397113,
+    "best_ndcg": 0.4440172619646739,
+    "optimization_timestamp": "20250727_224125"
+}

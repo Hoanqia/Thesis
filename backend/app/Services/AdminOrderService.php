@@ -11,18 +11,19 @@ use Exception;
 use Illuminate\Support\Facades\Log;
 use App\Models\StockLotAllocation;
 use Illuminate\Pagination\LengthAwarePaginator;
-
+use App\Services\NotificationService;
 class AdminOrderService
 {
     /**
      * Lấy tất cả đơn hàng (mới nhất đến cũ nhất)
      */
     protected $stockLotService;
-
+    protected $notificationService;
     // Inject StockLotService thông qua constructor
-    public function __construct(StockLotService $stockLotService)
+    public function __construct(StockLotService $stockLotService, NotificationService $notificationService)
     {
         $this->stockLotService = $stockLotService;
+        $this->notificationService = $notificationService;
     }
 
 
@@ -165,7 +166,12 @@ class AdminOrderService
 
 
             DB::commit();
-
+            $user = User::find($order->user_id);
+            $this->notificationService->createNotification(
+                $user,
+                "order",
+                "Đơn hàng" . $order->id  . "đã được xác nhận",
+            );
             return $order;
         } catch (\Exception $e) {
             DB::rollBack();
@@ -173,65 +179,13 @@ class AdminOrderService
             throw $e;
         }
     }
-    // /**
-    //  * Xác nhận đơn hàng
-    //  */
-    // public function confirmOrder($orderId)
-    // {
-    //     DB::beginTransaction();
-
-    //     try {
-    //         $order = Order::with('orderItems.variant')->findOrFail($orderId);
-
-    //         if ($order->status !== 'pending') {
-    //             throw new \Exception("Không thể xác nhận đơn hàng này.");
-    //         }
-
-    //         foreach ($order->orderItems as $item) {
-    //             $variant = $item->variant;
-
-    //             $reserved = ReservedStock::where('variant_id', $variant->id)
-    //                 ->where('user_id', $order->user_id)
-    //                 ->where('order_id', $order->id)
-    //                 ->first();
-
-    //             if (! $reserved) {
-    //                  $order->update([
-    //                     'status' => 'canceled',
-    //                 ]);
-    //                 throw new \Exception("Sản phẩm '{$variant->full_name}' đã hết hạn giữ tạm.");
-    //             }
-
-    //             if ($variant->stock < $item->quantity) {
-    //                 throw new \Exception("Sản phẩm '{$variant->full_name}' không đủ hàng.");
-    //             }
-
-    //             // Giảm tồn kho
-    //             $variant->decrement('stock', $item->quantity);
-
-    //             // Xoá bản ghi giữ hàng
-    //             $reserved->delete();
-    //         }
-
-    //         // Cập nhật trạng thái về 'confirmed'
-    //         $order->update(['status' => 'confirmed']);
-
-    //         DB::commit();
-
-    //         return $order;
-    //     } catch (\Exception $e) {
-    //         DB::rollBack();
-    //         throw $e;
-    //     }
-    // }
-
     /**
      * Cập nhật trạng thái đơn hàng
      */
     public function updateOrderStatus($orderId, $newStatus)
     {
         $order = Order::findOrFail($orderId);
-         if ($order->status === 'canceled' || $order->status === 'pending') {
+         if ($order->status === 'canceled') {
         throw new \InvalidArgumentException("Không thể thay đổi trạng thái.");
     }
         $validStatuses = ['pending', 'confirmed', 'shipping', 'completed', 'canceled'];
@@ -247,20 +201,58 @@ class AdminOrderService
             throw new \InvalidArgumentException("Trạng thái không hợp lệ.");
         }
 
+          // Bắt đầu transaction để đảm bảo tính toàn vẹn dữ liệu
+    DB::beginTransaction();
+    
+        // 4. Xử lý logic tồn kho hoặc giữ hàng dựa trên trạng thái mới
         if ($newStatus === 'canceled') {
-            if ($order->status === 'shipping') {
-                // Hoàn tác tồn kho khi đang giao
+            // Khi đơn hàng bị hủy, hoàn lại tồn kho
+            // Logic hoàn tồn kho phụ thuộc vào trạng thái hiện tại của đơn hàng
+            if (in_array($currentStatus, ['confirmed', 'shipping'])) {
+                // Hàng đã được xác nhận hoặc đang vận chuyển, nghĩa là tồn kho đã bị trừ từ các lô cụ thể
+                // Cần tạo StockLot mới cho từng phần đã được phân bổ
                 foreach ($order->orderItems as $item) {
-                    $item->variant()->increment('stock', $item->quantity);
+                    // Lấy tất cả các bản ghi phân bổ cho order_item này
+                    $allocations = StockLotAllocation::where('order_item_id', $item->id)->get();
+
+                    if ($allocations->isEmpty()) {             
+                        \Log::warning("Không tìm thấy StockLotAllocations cho OrderItem ID: " . $item->id);
+                        continue; 
+                    }
+
+                    foreach ($allocations as $allocation) {
+                        // Tạo StockLot mới cho phần hàng được hoàn lại từ mỗi lô đã phân bổ
+                        $this->stockService->createLot( // Gọi service của bạn
+                            $item->variant_id, // ID biến thể sản phẩm
+                            $allocation->allocated_quantity, // Số lượng được hoàn lại từ lô này
+                            $allocation->unit_cost_at_allocation, // **Giá vốn chính xác tại thời điểm xuất kho**
+                            null, // grnItemId
+                            'App\Models\StockLotAllocation', // referenceType: tham chiếu đến bản ghi phân bổ
+                            $allocation->id, // referenceId: ID của bản ghi phân bổ
+                            now('Asia/Ho_Chi_Minh'), // purchaseDate: Ngày nhập lại
+                            Auth::id(), // userId của người thực hiện hủy
+                            'ADJ_RETURN_FROM_CUSTOMER', // transactionType
+                            "Hàng trả lại từ đơn hàng hủy #" . $order->id . " (Phân bổ từ Lot #" . $allocation->stock_lot_id . ")"
+                        );
+                        // Tùy chọn: Bạn có thể đánh dấu allocation là đã hoàn trả hoặc xóa nó
+                        // $allocation->delete(); // hoặc $allocation->update(['is_returned' => true]);
+                    }
                 }
-            } elseif ($order->status === 'pending') {
-                // Xóa giữ hàng khi hủy trước xác nhận
+            } elseif ($currentStatus === 'pending') {
                 ReservedStock::where('order_id', $order->id)->delete();
             }
         }
 
+        // 5. Cập nhật trạng thái đơn hàng
         $order->update(['status' => $newStatus]);
 
+        DB::commit(); // Hoàn tất giao dịch
+        $user = User::find($order->user_id);
+            $this->notificationService->createNotification(
+                $user,
+                "order",
+                "Trạng thái của đơn hàng" . $order->id  . "đã được chuyển thành " . $order->status,
+            );
         return $order;
     }
 

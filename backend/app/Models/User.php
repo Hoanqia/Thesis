@@ -6,6 +6,8 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Tymon\JWTAuth\Contracts\JWTSubject;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany; // <-- THÊM DÒNG NÀY ĐỂ IMPORT ĐÚNG HASMANY
+
 class User extends Authenticatable implements JWTSubject
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
@@ -78,5 +80,31 @@ class User extends Authenticatable implements JWTSubject
     public function cart(){
         return $this->hasOne(Cart::class);
     }
+     public function notifications(): HasMany // <-- SỬA KIỂU TRẢ VỀ Ở ĐÂY
+    {
+        return $this->hasMany(Notification::class, 'user_id')->latest();
+    }
 
+    public function unreadNotifications(): HasMany // <-- CŨNG SỬA KIỂU TRẢ VỀ Ở ĐÂY
+    {
+        return $this->hasMany(Notification::class, 'user_id')->where('is_read', false)->latest();
+       
+    }
+
+    /**
+     * Kiểm tra xem người dùng có phải là quản trị viên không.
+     */
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    /**
+     * Kiểm tra xem người dùng có phải là khách hàng không.
+     */
+    public function isCustomer(): bool
+    {
+        return $this->role === 'customer';
+    }
+    
 }

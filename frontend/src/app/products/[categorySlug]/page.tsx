@@ -120,7 +120,7 @@ const bMinPrice = bVariants.length ? Math.min(...bVariants.map((v) => v.price)) 
         >
           Tất cả
         </Button>
-        {brands.map((brand) => (
+        {brands?.map((brand) => (
           <Button
             key={brand.id}
             variant={selectedBrand === brand.id ? "default" : "outline"}

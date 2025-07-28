@@ -130,7 +130,7 @@ export default function AdminDashboard() {
     <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
       <h1 className="text-3xl font-bold text-gray-900 mb-6">Tổng Quan</h1>
 
-      {/* Hero Stats */}
+       {/* Hero Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
         <HeroStatsCard
           title="Tổng Giá Trị Tồn Kho"
@@ -147,17 +147,18 @@ export default function AdminDashboard() {
         <HeroStatsCard
           title="Lợi Nhuận Hôm Nay"
           value={summary?.todayProfitFormatted || formatCurrency(0)}
-          type="revenue"
+          type="revenue" // Có thể dùng icon 'revenue' cho profit, hoặc tạo icon mới nếu có
+          trend={summary?.todayProfitTrend || null} // Đã thêm trend cho lợi nhuận
         />
         <HeroStatsCard
           title="Đơn Hàng Mới"
-          value={summary?.newOrdersToday?.toString() || '0'}
+          value={summary?.newOrdersTodayFormatted || '0'} // Đã sử dụng formatted value
           type="orders"
           trend={summary?.newOrdersTrend || null}
         />
         <HeroStatsCard
           title="Sản Phẩm Cần Nhập Thêm"
-          value={summary?.lowStockItemsCount?.toString() || '0'}
+          value={summary?.lowStockItemsCountFormatted || '0'} // Đã sử dụng formatted value
           type="alert"
         />
       </div>

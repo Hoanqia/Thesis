@@ -26,6 +26,9 @@ use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\StockLotController;
 use App\Http\Controllers\StatisticController;
 use App\Http\Controllers\RecommenderSettingsController;
+use App\Http\Controllers\RecommenderPerformanceController;
+use App\Http\Controllers\WeightedEventController;
+use App\Http\Controllers\NotificationController;
 // use app\Http\Middleware\RoleMiddleware;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
@@ -55,8 +58,33 @@ Route::prefix('auth')->group(function () {
 
 
 Route::middleware(['jwt.auth'])->group(function () {
+
+     // GET /api/notifications/unread
+    // Lấy danh sách các thông báo chưa đọc của người dùng hiện tại
+    Route::get('/notifications/unread', [NotificationController::class, 'getUnread']);
+
+    // GET /api/notifications
+    // Lấy tất cả các thông báo của người dùng hiện tại với phân trang
+    Route::get('/notifications', [NotificationController::class, 'index']);
+
+    // POST /api/notifications/{notification}/mark-as-read
+    // Đánh dấu một thông báo cụ thể là đã đọc
+    // {notification} sẽ được tự động giải quyết bằng Route Model Binding
+    Route::post('/notifications/{notification}/mark-as-read', [NotificationController::class, 'markAsRead']);
+
+    // POST /api/notifications/mark-all-as-read
+    // Đánh dấu tất cả thông báo chưa đọc của người dùng hiện tại là đã đọc
+    Route::post('/notifications/mark-all-as-read', [NotificationController::class, 'markAllAsRead']);
+
+    // DELETE /api/notifications/{notification}
+    // Xóa một thông báo cụ thể
+    // {notification} sẽ được tự động giải quyết bằng Route Model Binding
+    Route::delete('/notifications/{notification}', [NotificationController::class, 'destroy']);
+
     Route::middleware('role:admin')->group(function (){
         Route::prefix('admin')->group(function () {
+
+            Route::get('/recommender/performances',[RecommenderPerformanceController::class,'getPerformanceData']);
 
             Route::post('/recommender/settings', [RecommenderSettingsController::class, 'update']); // Cập nhật nhiều
             Route::get('/recommender/settings/{key}', [RecommenderSettingsController::class, 'show']); // Lấy một tham số
@@ -251,6 +279,27 @@ Route::middleware(['jwt.auth'])->group(function () {
     
     
 }); // ngoặc xác thực api
+
+
+Route::post('/weighted-events', [WeightedEventController::class, 'store']);
+
+    // API to get implicit scores for a list of user IDs (GET or POST)
+    // For large lists of user_ids, a POST request with body is generally preferred.
+    // Example (GET): /api/recommendation/weighted-events/scores?user_ids[]=1&user_ids[]=5
+    // Example (POST): /api/recommendation/weighted-events/scores (with JSON body: {"user_ids": [1, 5, 10]})
+Route::match(['get', 'post'], '/weighted-events/scores', [WeightedEventController::class, 'getImplicitScores']);
+
+    // API to get all unique product IDs (GET request)
+    // Example: GET /api/recommendation/weighted-events/unique-products
+Route::get('/weighted-events/unique-products', [WeightedEventController::class, 'getUniqueProductIds']);
+
+    // API to get all unique user IDs (GET request)
+    // Example: GET /api/recommendation/weighted-events/unique-users
+Route::get('/weighted-events/unique-users', [WeightedEventController::class, 'getUniqueUserIds']);
+
+
+Route::post('/recommender/performances',[RecommenderPerformanceController::class,'storePerformance']);
+
 Route::get('/product/{productSlug}/similar',[RecommendationController::class,'getSimilarItems']);
 Route::get('/recommender/settings', [RecommenderSettingsController::class, 'index']);
 

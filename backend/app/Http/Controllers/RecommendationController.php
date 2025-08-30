@@ -52,13 +52,13 @@ class RecommendationController extends Controller
     public function getSimilarItems(Request $request, $productSlug): JsonResponse
     {
         try {
-            $product = Product::where('slug',$productSlug)->first();
+            // $product = Product::where('slug',$productSlug)->first();
 
             $limit = (int) $request->query('limit', 10); // Mặc định 10 sản phẩm tương đồng
             // Giới hạn giá trị của limit để tránh query quá lớn
             $limit = max(1, min(20, $limit)); // Ví dụ: giới hạn từ 1 đến 20
 
-            $similarProducts = $this->recommendationService->get_similar_items_for_product($product->id, $limit);
+            $similarProducts = $this->recommendationService->getSimilarItemsByProductSlug($productSlug, $limit);
 
             return response()->json([
                 'message' => 'Lấy danh sách sản phẩm tương đồng thành công',

@@ -5,13 +5,16 @@ interface OrderCardProps {
   order: Order;
   onCancel: (orderId: number) => void;
   onRateOrder: (order: Order) => void; // callback để mở form đánh giá chung
+  onConfirmReceived: (orderId: number) => void; // Thêm prop này
+
 }
 
 const cancellableStatuses: Order['status'][] = ['pending', 'shipping', 'confirmed'];
 
-export const OrderCard: React.FC<OrderCardProps> = ({ order, onCancel, onRateOrder }) => {
+export const OrderCard: React.FC<OrderCardProps> = ({ order, onCancel, onRateOrder, onConfirmReceived }) => {
   const canCancel = cancellableStatuses.includes(order.status);
   const canRate = order.status === 'completed';
+  const canConfirmReceived = order.status === 'shipping'; // Điều kiện để hiển thị nút "Đã nhận được hàng"
 
   return (
     <div className="border rounded-lg p-4 mb-6 shadow-sm">
@@ -70,6 +73,15 @@ export const OrderCard: React.FC<OrderCardProps> = ({ order, onCancel, onRateOrd
               Hủy đơn
             </button>
           )}
+          {canConfirmReceived && ( // Hiển thị nút nếu điều kiện đúng
+          <button
+            onClick={() => onConfirmReceived(order.id)} // GỌI HÀM TỪ PROP
+            className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+          >
+            Đã nhận được hàng
+          </button>
+        )}
+
           {canRate && (
           <button
               onClick={() => onRateOrder(order)}

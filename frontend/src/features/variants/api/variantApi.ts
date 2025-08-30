@@ -2,59 +2,7 @@
 import { axiosRequest } from '@/lib/axiosRequest';
 import { Category } from '@/features/categories/api/categoryApi';
 import { VariantFromSupplier } from '@/features/suppliers/api/supplierApi';
-export interface Variant {
-  id: number;
-  product_id: number;
-  sku: string;
-  price: number;
-  discount: number;
-  stock: number;
-  image?: string;
-  profit_percent: number | 0;
-  average_cost: number| 0;
-  category_name?: string
-  variant_spec_values?: SpecValue[];
-  product?: Product;
-  full_name?: string;
-  image_url?: string;
-  available_stock_for_sale?: number;
-  status: number;
-  variant_from_suppliers?: VariantFromSupplier[];
-  selected_supplier_id?: number;
-  selected_supplier_price?: number;
-}
-
-interface VariantPricingData {
-  variant_id: number;
-  variant_from_supplier_id: number;
-}
-interface SetByTargetProfitFromSupplierPayload {
-  variants: VariantPricingData[];
-  profit_percent: number;
-  psychological_strategy?: string;
-}
-
-interface RecalculateByChosenSupplierCostPayload {
-  variants: VariantPricingData[];
-  psychological_strategy?: string;
-}
-
-
-
-// Định nghĩa Product nếu chưa có
-export interface Product {
-  id: number;
-  name: string;
-  slug: string;
-  description: string | null;
-  cat_id: number;
-  brand_id: number;
-  is_featured: number;
-  status: number; // Đây là status của product, giá trị 1 là "Hoạt động"
-  created_at: string;
-  updated_at: string;
-  category?: Category; // Nếu category luôn được eager load
-}
+import { Product } from '@/features/products/api/productApi';
 
 export interface SpecValue {
   id: number;
@@ -90,6 +38,46 @@ export interface SpecOption {
   created_at: string;
   updated_at: string;
 }
+
+export interface Variant {
+  id: number;
+  product_id: number;
+  sku: string;
+  price: number;
+  discount: number;
+  stock: number;
+  image?: string;
+  profit_percent: number | 0;
+  average_cost: number| 0;
+  category_name?: string
+  
+  variant_spec_values?: SpecValue[];
+  product?: Product;
+  full_name?: string;
+  image_url?: string;
+  available_stock_for_sale?: number;
+  status: number;
+  variant_from_suppliers?: VariantFromSupplier[];
+  selected_supplier_id?: number;
+  selected_supplier_price?: number;
+}
+
+interface VariantPricingData {
+  variant_id: number;
+  variant_from_supplier_id: number;
+}
+interface SetByTargetProfitFromSupplierPayload {
+  variants: VariantPricingData[];
+  profit_percent: number;
+  psychological_strategy?: string;
+}
+
+interface RecalculateByChosenSupplierCostPayload {
+  variants: VariantPricingData[];
+  psychological_strategy?: string;
+}
+
+
 const baseUrl = "/admin";
 
 

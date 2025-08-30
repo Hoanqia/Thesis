@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\User;
 use App\Models\Order;
 use Illuminate\Support\Facades\DB;
 use App\Models\ReservedStock;
@@ -222,7 +223,7 @@ class AdminOrderService
 
                     foreach ($allocations as $allocation) {
                         // Tạo StockLot mới cho phần hàng được hoàn lại từ mỗi lô đã phân bổ
-                        $this->stockService->createLot( // Gọi service của bạn
+                        $this->stockLotService->createLot( // Gọi service của bạn
                             $item->variant_id, // ID biến thể sản phẩm
                             $allocation->allocated_quantity, // Số lượng được hoàn lại từ lô này
                             $allocation->unit_cost_at_allocation, // **Giá vốn chính xác tại thời điểm xuất kho**

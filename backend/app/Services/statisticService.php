@@ -12,10 +12,16 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log; // Đã thêm để ghi log lỗi
 use App\Models\InventoryTransaction;
 use NumberFormatter;
+use Illuminate\Pagination\LengthAwarePaginator;
+
 class StatisticService
 {
     private const DEFAULT_MIN_STOCK_THRESHOLD = 10;
 
+
+    public function getRecentActivities_2(){
+        
+    }
      /**
      * Lấy tóm tắt các chỉ số chính cho dashboard.
      *
@@ -260,77 +266,157 @@ class StatisticService
         ];
     }
 
+    // /**
+    //  * Lấy danh sách sản phẩm bán chạy nhất.
+    //  * Tương ứng với: GET /api/reports/top-selling-products
+    //  * @param int $limit
+    //  * @param string $period 'weekly', 'monthly', 'quarterly', 'yearly'
+    //  * @return array
+    //  */
+    // public function getTopSellingProducts(int $limit = 5, string $period = 'monthly'): array
+    // {
+    //     $startDate = Carbon::today(); // Sử dụng múi giờ của APP_TIMEZONE
+    //     switch ($period) {
+    //         case 'weekly':
+    //             $startDate->subWeek();
+    //             break;
+    //         case 'monthly':
+    //             $startDate->subMonth();
+    //             break;
+    //         case 'quarterly':
+    //             $startDate->subMonths(3);
+    //             break;
+    //         case 'yearly':
+    //             $startDate->subYear();
+    //             break;
+    //         default: // Mặc định tháng gần nhất
+    //             $startDate->subMonth();
+    //     }
+
+    //     $topProducts = OrderItem::query()
+    //         ->select(
+    //             'variant_id',
+    //             DB::raw('SUM(quantity) as total_quantity_sold'),
+    //             DB::raw('SUM(quantity * price) as total_revenue')
+    //         )
+    //         ->whereHas('order', function ($query) use ($startDate) {
+    //             $query->where('status', 'completed')
+    //                 ->where('created_at', '>=', $startDate->startOfDay()); // Đảm bảo bao gồm cả ngày bắt đầu
+    //         })
+    //         ->with('variant.product')
+    //         ->groupBy('variant_id')
+    //         ->orderByDesc('total_quantity_sold')
+    //         ->limit($limit)
+    //         ->get();
+
+    //     return $topProducts->map(function ($item) {
+    //         return [
+    //             'id' => $item->variant_id,
+    //             'name' => $item->variant->full_name ?? $item->variant->sku,
+    //             'quantity' => (int) $item->total_quantity_sold,
+    //             'revenue' => (float) $item->total_revenue,
+    //         ];
+    //     })->toArray();
+    // }
+    
     /**
-     * Lấy danh sách sản phẩm bán chạy nhất.
-     * Tương ứng với: GET /api/reports/top-selling-products
-     * @param int $limit
-     * @param string $period 'weekly', 'monthly', 'quarterly', 'yearly'
-     * @return array
-     */
-    public function getTopSellingProducts(int $limit = 5, string $period = 'monthly'): array
-    {
-        $startDate = Carbon::today(); // Sử dụng múi giờ của APP_TIMEZONE
-        switch ($period) {
-            case 'weekly':
-                $startDate->subWeek();
-                break;
-            case 'monthly':
-                $startDate->subMonth();
-                break;
-            case 'quarterly':
-                $startDate->subMonths(3);
-                break;
-            case 'yearly':
-                $startDate->subYear();
-                break;
-            default: // Mặc định tháng gần nhất
-                $startDate->subMonth();
-        }
-
-        $topProducts = OrderItem::query()
-            ->select(
-                'variant_id',
-                DB::raw('SUM(quantity) as total_quantity_sold'),
-                DB::raw('SUM(quantity * price) as total_revenue')
-            )
-            ->whereHas('order', function ($query) use ($startDate) {
-                $query->where('status', 'completed')
-                    ->where('created_at', '>=', $startDate->startOfDay()); // Đảm bảo bao gồm cả ngày bắt đầu
-            })
-            ->with('variant.product')
-            ->groupBy('variant_id')
-            ->orderByDesc('total_quantity_sold')
-            ->limit($limit)
-            ->get();
-
-        return $topProducts->map(function ($item) {
-            return [
-                'id' => $item->variant_id,
-                'name' => $item->variant->full_name ?? $item->variant->sku,
-                'quantity' => (int) $item->total_quantity_sold,
-                'revenue' => (float) $item->total_revenue,
-            ];
-        })->toArray();
+ * Lấy danh sách sản phẩm bán chạy nhất.
+ * Tương ứng với: GET /api/reports/top-selling-products
+ * @param int $perPage Số lượng item trên mỗi trang.
+ * @param string $period 'weekly', 'monthly', 'quarterly', 'yearly'
+ * @return \Illuminate\Contracts\Pagination\LengthAwarePaginator
+ */
+public function getTopSellingProducts(int $perPage = 10, string $period = 'monthly')
+{
+    $startDate = Carbon::today();
+    switch ($period) {
+        case 'weekly':
+            $startDate->subWeek();
+            break;
+        case 'monthly':
+            $startDate->subMonth();
+            break;
+        case 'quarterly':
+            $startDate->subMonths(3);
+            break;
+        case 'yearly':
+            $startDate->subYear();
+            break;
+        default:
+            $startDate->subMonth();
     }
 
+    $query = OrderItem::query()
+        ->select(
+            'variant_id',
+            DB::raw('SUM(quantity) as total_quantity_sold'),
+            DB::raw('SUM(quantity * price) as total_revenue')
+        )
+        ->whereHas('order', function ($query) use ($startDate) {
+            $query->where('status', 'completed')
+                ->where('created_at', '>=', $startDate->startOfDay());
+        })
+        ->with('variant.product')
+        ->groupBy('variant_id')
+        ->orderByDesc('total_quantity_sold');
+
+    // Sử dụng paginate() thay cho limit() và get()
+    return $query->paginate($perPage)->through(function ($item) {
+        return [
+            'id' => $item->variant_id,
+            'name' => $item->variant->full_name ?? $item->variant->sku,
+            'quantity' => (int) $item->total_quantity_sold,
+            'revenue' => (float) $item->total_revenue,
+        ];
+    });
+}
+
+    // /**
+    //  * Lấy danh sách cảnh báo tồn kho thấp hoặc sắp hết hạn.
+    //  * Tương ứng với: GET /api/reports/stock-alerts
+    //  * @param string|null $type 'low_stock' | 'expired_soon'
+    //  * @return array
+    //  */
+    // public function getStockAlerts(?string $type = null): array
+    // {
+    //     $alerts = [];
+
+    //     if ($type === null || $type === 'low_stock') {
+    //         $lowStockVariants = Variant::query()
+    //             ->with(['product','variantSpecValues.specification','variantSpecValues.spec_options'])
+    //             ->where('stock', '<', self::DEFAULT_MIN_STOCK_THRESHOLD)
+    //             ->get();
+
+    //         foreach ($lowStockVariants as $variant) {
+    //             $alerts[] = [
+    //                 'id' => 'low_' . $variant->id,
+    //                 'productName' => $variant->full_name ?? $variant->sku,
+    //                 'currentStock' => $variant->stock,
+    //                 'type' => 'low_stock',
+    //                 'threshold' => self::DEFAULT_MIN_STOCK_THRESHOLD,
+    //                 'unit' => $variant->product->unit ?? 'sản phẩm',
+    //             ];
+    //         }
+    //     }
+
+    //     return $alerts;
+    // }
     /**
-     * Lấy danh sách cảnh báo tồn kho thấp hoặc sắp hết hạn.
-     * Tương ứng với: GET /api/reports/stock-alerts
-     * @param string|null $type 'low_stock' | 'expired_soon'
-     * @return array
-     */
-    public function getStockAlerts(?string $type = null): array
-    {
-        $alerts = [];
-
-        if ($type === null || $type === 'low_stock') {
-            $lowStockVariants = Variant::query()
-                ->with(['product','variantSpecValues.specification','variantSpecValues.spec_options'])
-                ->where('stock', '<', self::DEFAULT_MIN_STOCK_THRESHOLD)
-                ->get();
-
-            foreach ($lowStockVariants as $variant) {
-                $alerts[] = [
+ * Lấy danh sách cảnh báo tồn kho thấp.
+ * Tương ứng với: GET /api/reports/stock-alerts
+ * @param string|null $type 'low_stock' (mặc định chỉ hỗ trợ low_stock)
+ * @param int $perPage Số lượng item trên mỗi trang.
+ * @return \Illuminate\Contracts\Pagination\LengthAwarePaginator
+ */
+public function getStockAlerts(?string $type = 'low_stock', int $perPage = 10)
+{
+    if ($type === 'low_stock') {
+        $lowStockVariants = Variant::query()
+            ->with(['product','variantSpecValues.specification','variantSpecValues.spec_options'])
+            ->where('stock', '<', self::DEFAULT_MIN_STOCK_THRESHOLD)
+            ->paginate($perPage) // Sử dụng paginate()
+            ->through(function ($variant) {
+                return [
                     'id' => 'low_' . $variant->id,
                     'productName' => $variant->full_name ?? $variant->sku,
                     'currentStock' => $variant->stock,
@@ -338,74 +424,151 @@ class StatisticService
                     'threshold' => self::DEFAULT_MIN_STOCK_THRESHOLD,
                     'unit' => $variant->product->unit ?? 'sản phẩm',
                 ];
-            }
-        }
+            });
 
-        return $alerts;
+        return $lowStockVariants;
     }
+
+    // Trả về một paginator rỗng nếu type không hợp lệ hoặc không có kết quả
+    return new \Illuminate\Pagination\LengthAwarePaginator([], 0, $perPage);
+}
+    // /**
+    //  * Lấy các hoạt động gần đây (nhập và xuất).
+    //  * Tương ứng với: GET /api/reports/recent-activities
+    //  * @param int $limit
+    //  * @return array
+    //  */
+    // public function getRecentActivities(int $limit = 10): array
+    // {
+    //     $activities = collect();
+    //     // Carbon::now() (không có đối số) sẽ sử dụng múi giờ của APP_TIMEZONE
+    //     $currentTime = Carbon::now();
+
+    //     // Lấy các hoạt động nhập hàng gần đây (GRN - Goods Received Note)
+    //     $grnActivities = Grn::query()
+    //         ->with(['user', 'items.purchaseOrderItem.variant.product'])
+    //         ->orderByDesc('created_at')
+    //         ->limit($limit)
+    //         ->get()
+    //         ->flatMap(function ($grn) use ($currentTime) {
+    //             return $grn->items->map(function ($item) use ($grn, $currentTime) {
+    //                 return [
+    //                     'id' => 'grn_' . $item->id,
+    //                     'type' => 'import',
+    //                     'productName' => $item->purchaseOrderItem->variant->full_name ?? $item->purchaseOrderItem->variant->sku,
+    //                     'quantity' => (int) $item->quantity,
+    //                     'user' => $grn->user->name ?? 'N/A',
+    //                     'timeAgo' => Carbon::parse($grn->created_at)->diffForHumans($currentTime, ['parts' => 1, 'short' => true, 'syntax' => Carbon::DIFF_RELATIVE_TO_NOW]),
+    //                     'unit' => $item->purchaseOrderItem->variant->product->unit ?? 'sản phẩm',
+    //                     'originalTimestamp' => Carbon::parse($grn->created_at)->timestamp,
+    //                 ];
+    //             });
+    //         });
+
+    //     // Lấy các hoạt động bán hàng gần đây (Order)
+    //     $orderActivities = Order::query()
+    //         ->with(['user', 'orderItems.variant.product'])
+    //         ->where('status', 'completed')
+    //         ->orderByDesc('created_at')
+    //         ->limit($limit)
+    //         ->get()
+    //         ->flatMap(function ($order) use ($currentTime) {
+    //             return $order->orderItems->map(function ($item) use ($order, $currentTime) {
+    //                 return [
+    //                     'id' => 'order_' . $item->id,
+    //                     'type' => 'export',
+    //                     'productName' => $item->variant->full_name ?? $item->variant->sku,
+    //                     'quantity' => (int) $item->quantity,
+    //                     'user' => $order->user->name ?? 'N/A',
+    //                     'timeAgo' => Carbon::parse($order->created_at)->diffForHumans($currentTime, ['parts' => 1, 'short' => true, 'syntax' => Carbon::DIFF_RELATIVE_TO_NOW]),
+    //                     'unit' => $item->variant->product->unit ?? 'sản phẩm',
+    //                     'originalTimestamp' => Carbon::parse($order->created_at)->timestamp,
+    //                 ];
+    //             });
+    //         });
+
+    //     // Kết hợp và sắp xếp lại theo thời gian
+    //     $activities = $grnActivities->concat($orderActivities)
+    //         ->sortByDesc(fn($activity) => $activity['originalTimestamp'])
+    //         ->take($limit)
+    //         ->values()
+    //         ->toArray();
+
+    //     return $activities;
+    // }
 
     /**
-     * Lấy các hoạt động gần đây (nhập và xuất).
-     * Tương ứng với: GET /api/reports/recent-activities
-     * @param int $limit
-     * @return array
-     */
-    public function getRecentActivities(int $limit = 10): array
-    {
-        $activities = collect();
-        // Carbon::now() (không có đối số) sẽ sử dụng múi giờ của APP_TIMEZONE
+ * Lấy các hoạt động gần đây (nhập và xuất) có phân trang.
+ * Tương ứng với: GET /api/reports/recent-activities
+ * @param int $perPage
+ * @param int|null $page
+ * @return \Illuminate\Contracts\Pagination\LengthAwarePaginator
+ */
+public function getRecentActivities(int $perPage = 10, ?int $page = null)
+{
+    $page = $page ?: \Illuminate\Pagination\Paginator::resolveCurrentPage('page');
+    $offset = ($page - 1) * $perPage;
+
+    // Lấy tất cả hoạt động từ GRN
+    $grnActivities = Grn::query()
+        ->with(['user', 'items.purchaseOrderItem.variant.product'])
+        ->orderByDesc('created_at')
+        ->get()
+        ->flatMap(function ($grn) {
+            return $grn->items->map(function ($item) use ($grn) {
+                return [
+                    'id' => 'grn_' . $item->id,
+                    'type' => 'import',
+                    'productName' => $item->purchaseOrderItem->variant->full_name ?? $item->purchaseOrderItem->variant->sku,
+                    'quantity' => (int) $item->quantity,
+                    'user' => $grn->user->name ?? 'N/A',
+                    'originalTimestamp' => Carbon::parse($grn->created_at)->timestamp,
+                    'unit' => $item->purchaseOrderItem->variant->product->unit ?? 'sản phẩm',
+                    'created_at' => Carbon::parse($grn->created_at), // Thêm trường này để sắp xếp
+                ];
+            });
+        });
+
+    // Lấy tất cả hoạt động từ Order
+    $orderActivities = Order::query()
+        ->with(['user', 'orderItems.variant.product'])
+        ->where('status', 'completed')
+        ->orderByDesc('created_at')
+        ->get()
+        ->flatMap(function ($order) {
+            return $order->orderItems->map(function ($item) use ($order) {
+                return [
+                    'id' => 'order_' . $item->id,
+                    'type' => 'export',
+                    'productName' => $item->variant->full_name ?? $item->variant->sku,
+                    'quantity' => (int) $item->quantity,
+                    'user' => $order->user->name ?? 'N/A',
+                    'originalTimestamp' => Carbon::parse($order->created_at)->timestamp,
+                    'unit' => $item->variant->product->unit ?? 'sản phẩm',
+                    'created_at' => Carbon::parse($order->created_at), // Thêm trường này để sắp xếp
+                ];
+            });
+        });
+
+    // Kết hợp và sắp xếp lại theo created_at
+    $allActivities = $grnActivities->concat($orderActivities)->sortByDesc('created_at');
+    $total = $allActivities->count();
+
+    // Lấy dữ liệu cho trang hiện tại
+    $pagedActivities = $allActivities->slice($offset, $perPage)->values()->map(function($item) {
         $currentTime = Carbon::now();
+        $item['timeAgo'] = $item['created_at']->diffForHumans($currentTime, ['parts' => 1, 'short' => true, 'syntax' => Carbon::DIFF_RELATIVE_TO_NOW]);
+        unset($item['created_at']); // Xóa trường created_at nếu không cần thiết
+        return $item;
+    });
 
-        // Lấy các hoạt động nhập hàng gần đây (GRN - Goods Received Note)
-        $grnActivities = Grn::query()
-            ->with(['user', 'items.purchaseOrderItem.variant.product'])
-            ->orderByDesc('created_at')
-            ->limit($limit)
-            ->get()
-            ->flatMap(function ($grn) use ($currentTime) {
-                return $grn->items->map(function ($item) use ($grn, $currentTime) {
-                    return [
-                        'id' => 'grn_' . $item->id,
-                        'type' => 'import',
-                        'productName' => $item->purchaseOrderItem->variant->full_name ?? $item->purchaseOrderItem->variant->sku,
-                        'quantity' => (int) $item->quantity,
-                        'user' => $grn->user->name ?? 'N/A',
-                        'timeAgo' => Carbon::parse($grn->created_at)->diffForHumans($currentTime, ['parts' => 1, 'short' => true, 'syntax' => Carbon::DIFF_RELATIVE_TO_NOW]),
-                        'unit' => $item->purchaseOrderItem->variant->product->unit ?? 'sản phẩm',
-                        'originalTimestamp' => Carbon::parse($grn->created_at)->timestamp,
-                    ];
-                });
-            });
-
-        // Lấy các hoạt động bán hàng gần đây (Order)
-        $orderActivities = Order::query()
-            ->with(['user', 'orderItems.variant.product'])
-            ->where('status', 'completed')
-            ->orderByDesc('created_at')
-            ->limit($limit)
-            ->get()
-            ->flatMap(function ($order) use ($currentTime) {
-                return $order->orderItems->map(function ($item) use ($order, $currentTime) {
-                    return [
-                        'id' => 'order_' . $item->id,
-                        'type' => 'export',
-                        'productName' => $item->variant->full_name ?? $item->variant->sku,
-                        'quantity' => (int) $item->quantity,
-                        'user' => $order->user->name ?? 'N/A',
-                        'timeAgo' => Carbon::parse($order->created_at)->diffForHumans($currentTime, ['parts' => 1, 'short' => true, 'syntax' => Carbon::DIFF_RELATIVE_TO_NOW]),
-                        'unit' => $item->variant->product->unit ?? 'sản phẩm',
-                        'originalTimestamp' => Carbon::parse($order->created_at)->timestamp,
-                    ];
-                });
-            });
-
-        // Kết hợp và sắp xếp lại theo thời gian
-        $activities = $grnActivities->concat($orderActivities)
-            ->sortByDesc(fn($activity) => $activity['originalTimestamp'])
-            ->take($limit)
-            ->values()
-            ->toArray();
-
-        return $activities;
-    }
+    // Tự tạo đối tượng LengthAwarePaginator
+    return new \Illuminate\Pagination\LengthAwarePaginator(
+        $pagedActivities,
+        $total,
+        $perPage,
+        $page,
+        ['path' => \Illuminate\Pagination\Paginator::resolveCurrentPath()]
+    );
+}
 }

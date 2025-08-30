@@ -674,9 +674,12 @@ const StockLotDetails: React.FC<StockLotDetailsProps> = ({ lotId, onBackToList, 
                     <p><strong className="font-medium">Số lượng còn lại:</strong> <span className="font-bold text-lg">{getRemainingQuantity}</span></p>
                     <p><strong className="font-medium">Ngày tạo:</strong> {new Date(lotDetails.created_at).toLocaleString()}</p>
                     <p><strong className="font-medium">Ngày cập nhật:</strong> {new Date(lotDetails.updated_at).toLocaleString()}</p>
-                    {lotDetails.grn_item && (
+                    <p><strong className="font-medium">Loại tham chiếu: </strong> {lotDetails.reference_type}</p>
+                    <p><strong className="font-medium">ID tham chiếu: </strong> {lotDetails.reference_id}</p>
+
+                    {/* {lotDetails.grn_item && (
                         <p><strong className="font-medium">Tham chiếu GRN Item:</strong> {lotDetails.grn_item.id} (GRN: {lotDetails.grn_item.grn_id})</p>
-                    )}
+                    )} */}
                     {lotDetails.grn_item?.grn?.purchase_order?.supplier && (
                          <p><strong className="font-medium">Nhà cung cấp:</strong> {lotDetails.grn_item.grn.purchase_order.supplier.name}</p>
                     )}

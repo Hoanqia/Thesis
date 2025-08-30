@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Models\RecommenderPerformance;
 use Illuminate\Support\Collection; 
 use Illuminate\Support\Facades\Log; 
-
+use Symfony\Component\Process\Process;
 class RecommenderPerformanceService
 {
      /**
@@ -111,80 +111,6 @@ class RecommenderPerformanceService
     }
 
 
-    //     composer require symfony/process
-
-    /**
-     * Chạy một tệp Python cụ thể và trả về kết quả.
-     *
-     * @param string $scriptName Tên của tệp Python (ví dụ: 'my_script.py').
-     * @param array $args Mảng các đối số để truyền vào script Python.
-     * @return array {
-     * 'success': bool,
-     * 'output': string|null,
-     * 'error': string|null,
-     * 'exit_code': int|null
-     * }
-     */
-    public function runPythonScript(string $scriptName, array $args = []): array
-    {
-        $scriptPath = base_path('backend/script/Complete-Thesis/' . $scriptName);
-
-        // Kiểm tra xem tệp script có tồn tại không
-        if (!file_exists($scriptPath)) {
-            Log::error('Tệp Python không tìm thấy: ' . $scriptPath);
-            return [
-                'success' => false,
-                'output' => null,
-                'error' => 'Tệp Python không tồn tại tại: ' . $scriptPath,
-                'exit_code' => null
-            ];
-        }
-
-        // Xây dựng lệnh với các đối số
-        // Đảm bảo rằng bạn có Python trong PATH hoặc cung cấp đường dẫn đầy đủ đến executable của Python.
-        // Ví dụ: '/usr/bin/python3' hoặc 'C:\Python\Python39\python.exe'
-        $command = ['python3', $scriptPath]; // Giả sử 'python3' là lệnh của bạn
-        $command = array_merge($command, $args); // Thêm các đối số
-
-        try {
-            $process = new Process($command);
-            $process->setTimeout(3600); // Đặt thời gian chờ là 1 giờ (có thể điều chỉnh)
-
-            Log::info('Đang chạy script Python: ' . implode(' ', $command));
-
-            $process->run();
-
-            // Kiểm tra xem lệnh đã chạy thành công chưa
-            if ($process->isSuccessful()) {
-                Log::info('Script Python chạy thành công.', ['output' => $process->getOutput()]);
-                return [
-                    'success' => true,
-                    'output' => $process->getOutput(),
-                    'error' => null,
-                    'exit_code' => $process->getExitCode()
-                ];
-            } else {
-                Log::error('Script Python chạy thất bại.', [
-                    'output' => $process->getOutput(),
-                    'error' => $process->getErrorOutput(),
-                    'exit_code' => $process->getExitCode()
-                ]);
-                return [
-                    'success' => false,
-                    'output' => $process->getOutput(),
-                    'error' => $process->getErrorOutput(),
-                    'exit_code' => $process->getExitCode()
-                ];
-            }
-        } catch (\Exception $e) {
-            Log::error('Lỗi khi thực thi script Python: ' . $e->getMessage(), ['exception' => $e]);
-            return [
-                'success' => false,
-                'output' => null,
-                'error' => 'Ngoại lệ khi thực thi script Python: ' . $e->getMessage(),
-                'exit_code' => null
-            ];
-        }
-    }
+  
 
 }

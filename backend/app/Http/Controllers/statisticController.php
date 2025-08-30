@@ -67,8 +67,7 @@ class StatisticController extends Controller
 
         }
     }
-
-    /**
+     /**
      * Lấy danh sách sản phẩm bán chạy nhất.
      * Tương ứng với: GET /api/admin/top-selling-products
      *
@@ -78,10 +77,10 @@ class StatisticController extends Controller
     public function getTopSellingProducts(Request $request): JsonResponse
     {
         try {
-            $limit = (int) $request->query('limit', 5);
+            $perPage = (int) $request->query('per_page', 10);
             $period = $request->query('period', 'monthly');
 
-            $products = $this->statisticService->getTopSellingProducts($limit, $period);
+            $products = $this->statisticService->getTopSellingProducts($perPage, $period);
             return response()->json([
                 'message' => 'Lấy danh sách sản phẩm bán chạy nhất thành công',
                 'status' => 'success',
@@ -89,7 +88,6 @@ class StatisticController extends Controller
             ], 200);
         } catch (\Exception $e) {
             return ApiExceptionHandler::handleException($e);
-
         }
     }
 
@@ -103,16 +101,17 @@ class StatisticController extends Controller
     public function getStockAlerts(Request $request): JsonResponse
     {
         try {
-            $type = $request->query('type'); // 'low_stock' hoặc 'expired_soon'
-            $alerts = $this->statisticService->getStockAlerts($type);
+            $type = $request->query('type', 'low_stock');
+            $perPage = (int) $request->query('per_page', 10);
+            
+            $alerts = $this->statisticService->getStockAlerts($type, $perPage);
             return response()->json([
                 'message' => 'Lấy cảnh báo tồn kho thành công',
                 'status' => 'success',
                 'data' => $alerts
             ], 200);
         } catch (\Exception $e) {
-                       return ApiExceptionHandler::handleException($e);
-
+            return ApiExceptionHandler::handleException($e);
         }
     }
 
@@ -126,16 +125,87 @@ class StatisticController extends Controller
     public function getRecentActivities(Request $request): JsonResponse
     {
         try {
-            $limit = (int) $request->query('limit', 10);
-            $activities = $this->statisticService->getRecentActivities($limit);
+            $perPage = (int) $request->query('per_page', 10);
+            $page = (int) $request->query('page', 1);
+
+            $activities = $this->statisticService->getRecentActivities($perPage, $page);
             return response()->json([
                 'message' => 'Lấy các hoạt động gần đây thành công',
                 'status' => 'success',
                 'data' => $activities
             ], 200);
         } catch (\Exception $e) {
-                        return ApiExceptionHandler::handleException($e);
-
+            return ApiExceptionHandler::handleException($e);
         }
     }
+    // /**
+    //  * Lấy danh sách sản phẩm bán chạy nhất.
+    //  * Tương ứng với: GET /api/admin/top-selling-products
+    //  *
+    //  * @param Request $request
+    //  * @return JsonResponse
+    //  */
+    // public function getTopSellingProducts(Request $request): JsonResponse
+    // {
+    //     try {
+    //         $limit = (int) $request->query('limit', 5);
+    //         $period = $request->query('period', 'monthly');
+
+    //         $products = $this->statisticService->getTopSellingProducts($limit, $period);
+    //         return response()->json([
+    //             'message' => 'Lấy danh sách sản phẩm bán chạy nhất thành công',
+    //             'status' => 'success',
+    //             'data' => $products
+    //         ], 200);
+    //     } catch (\Exception $e) {
+    //         return ApiExceptionHandler::handleException($e);
+
+    //     }
+    // }
+
+    // /**
+    //  * Lấy danh sách cảnh báo tồn kho thấp hoặc sắp hết hạn.
+    //  * Tương ứng với: GET /api/admin/stock-alerts
+    //  *
+    //  * @param Request $request
+    //  * @return JsonResponse
+    //  */
+    // public function getStockAlerts(Request $request): JsonResponse
+    // {
+    //     try {
+    //         $type = $request->query('type'); // 'low_stock' hoặc 'expired_soon'
+    //         $alerts = $this->statisticService->getStockAlerts($type);
+    //         return response()->json([
+    //             'message' => 'Lấy cảnh báo tồn kho thành công',
+    //             'status' => 'success',
+    //             'data' => $alerts
+    //         ], 200);
+    //     } catch (\Exception $e) {
+    //                    return ApiExceptionHandler::handleException($e);
+
+    //     }
+    // }
+
+    // /**
+    //  * Lấy các hoạt động gần đây (nhập và xuất).
+    //  * Tương ứng với: GET /api/admin/recent-activities
+    //  *
+    //  * @param Request $request
+    //  * @return JsonResponse
+    //  */
+    // public function getRecentActivities(Request $request): JsonResponse
+    // {
+    //     try {
+    //         $limit = (int) $request->query('limit', 10);
+    //         $activities = $this->statisticService->getRecentActivities($limit);
+    //         return response()->json([
+    //             'message' => 'Lấy các hoạt động gần đây thành công',
+    //             'status' => 'success',
+    //             'data' => $activities
+    //         ], 200);
+    //     } catch (\Exception $e) {
+    //                     return ApiExceptionHandler::handleException($e);
+
+    //     }
+    // }
 }

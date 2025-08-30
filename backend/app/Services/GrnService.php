@@ -192,7 +192,7 @@ class GrnService
                     quantityIn: $actualReceivedQuantity,
                     unitCost: $grnItem->unit_cost,
                     grnItemId: $grnItem->id, // Liên kết trực tiếp với grn_item_id
-                    referenceType: 'GRN', // Hoặc 'App\Models\Grn'
+                    referenceType: 'App\Models\GrnItem', // Hoặc 'App\Models\Grn'
                     referenceId: $grnItem->id, // Hoặc $grn->id
                     purchaseDate: $grnItem->created_at,
                     userId: $user->id,

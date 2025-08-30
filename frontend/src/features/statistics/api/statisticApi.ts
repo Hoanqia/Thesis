@@ -1,24 +1,26 @@
 import { axiosRequest } from '@/lib/axiosRequest'; // Import axiosRequest đã cấu hình sẵn
 // import { formatCurrency } from '@/lib/utils'; // Không cần thiết ở đây vì backend đã format
 
-// ==========================================================
-// 1. INTERFACES (Định nghĩa cấu trúc dữ liệu trả về từ API)
-// ==========================================================
+export interface PaginatedData<T> {
+  current_page: number;
+  data: T[];
+  first_page_url: string;
+  from: number;
+  last_page: number;
+  last_page_url: string;
+  links: {
+    url: string | null;
+    label: string;
+    active: boolean;
+  }[];
+  next_page_url: string | null;
+  path: string;
+  per_page: number;
+  prev_page_url: string | null;
+  to: number;
+  total: number;
+}
 
-// // Giao diện cho Dashboard Summary
-// export interface DashboardSummary {
-//   totalInventoryValue: number;
-//   totalInventoryValueFormatted: string;
-//   todayRevenue: number;
-//   todayRevenueFormatted: string;
-//   todayProfit: string;
-//   todayProfitFormatted: string
-//   newOrdersToday: number;
-//   lowStockItemsCount: number;
-//   totalInventoryValueTrend: string; // Dữ liệu dummy từ backend PHP
-//   todayRevenueTrend: string;      // Dữ liệu dummy từ backend PHP
-//   newOrdersTrend: string;         // Dữ liệu dummy từ backend PHP
-// }
 export interface DashboardSummary {
   totalInventoryValue: number;
   totalInventoryValueFormatted: string;
@@ -124,25 +126,26 @@ const statisticApi = {
       throw error;
     }
   },
-
-  /**
-   * Lấy danh sách sản phẩm bán chạy nhất.
-   * Tương ứng với: GET /api/admin/top-selling-products
-   * @param {number} [limit=5] Số lượng sản phẩm muốn lấy
+ /**
+   * Lấy danh sách sản phẩm bán chạy nhất CÓ PHÂN TRANG.
+   * @param {number} [per_page=10] Số lượng sản phẩm trên mỗi trang
+   * @param {number} [page=1] Trang hiện tại
    * @param {'weekly' | 'monthly' | 'quarterly' | 'yearly'} [period='monthly'] Khoảng thời gian
-   * @returns {Promise<TopSellingProduct[]>}
+   * @returns {Promise<PaginatedData<TopSellingProduct>>}
    */
   getTopSellingProducts: async (
-    limit: number = 5,
+    per_page: number = 10, 
+    page: number = 1,
     period: 'weekly' | 'monthly' | 'quarterly' | 'yearly' = 'monthly'
-  ): Promise<TopSellingProduct[]> => {
+  ): Promise<PaginatedData<TopSellingProduct>> => {
     try {
       const params = {
-        limit: limit.toString(),
+        per_page: per_page.toString(),
+        page: page.toString(),
         period: period,
       };
-      // Sử dụng axiosRequest với method GET và truyền params vào config
       const response = await axiosRequest<any>('/admin/top-selling-products', 'GET', undefined, { params });
+      // Backend giờ trả về đối tượng phân trang, nên return response.data trực tiếp
       return response.data;
     } catch (error) {
       console.error("Error fetching top selling products:", error);
@@ -151,17 +154,23 @@ const statisticApi = {
   },
 
   /**
-   * Lấy danh sách cảnh báo tồn kho thấp hoặc sắp hết hạn.
-   * Tương ứng với: GET /api/admin/stock-alerts
-   * @param {'low_stock' | 'expired_soon'} [type] Lọc theo loại cảnh báo
-   * @returns {Promise<StockAlert[]>}
+   * Lấy danh sách cảnh báo tồn kho thấp hoặc sắp hết hạn CÓ PHÂN TRANG.
+   * @param {'low_stock' | 'expired_soon'} [type='low_stock'] Lọc theo loại cảnh báo
+   * @param {number} [per_page=10] Số lượng cảnh báo trên mỗi trang
+   * @param {number} [page=1] Trang hiện tại
+   * @returns {Promise<PaginatedData<StockAlert>>}
    */
-  getStockAlerts: async (type?: 'low_stock' | 'expired_soon'): Promise<StockAlert[]> => {
+  getStockAlerts: async (
+    type: 'low_stock' | 'expired_soon' = 'low_stock',
+    per_page: number = 10,
+    page: number = 1
+  ): Promise<PaginatedData<StockAlert>> => {
     try {
-      const params: { type?: string } = {};
-      if (type) params.type = type;
-
-      // Sử dụng axiosRequest với method GET và truyền params vào config
+      const params = {
+        type: type,
+        per_page: per_page.toString(),
+        page: page.toString(),
+      };
       const response = await axiosRequest<any>('/admin/stock-alerts', 'GET', undefined, { params });
       return response.data;
     } catch (error) {
@@ -171,15 +180,20 @@ const statisticApi = {
   },
 
   /**
-   * Lấy các hoạt động gần đây (nhập và xuất).
-   * Tương ứng với: GET /api/admin/recent-activities
-   * @param {number} [limit=10] Số lượng hoạt động muốn lấy
-   * @returns {Promise<RecentActivity[]>}
+   * Lấy các hoạt động gần đây (nhập và xuất) CÓ PHÂN TRANG.
+   * @param {number} [per_page=10] Số lượng hoạt động trên mỗi trang
+   * @param {number} [page=1] Trang hiện tại
+   * @returns {Promise<PaginatedData<RecentActivity>>}
    */
-  getRecentActivities: async (limit: number = 10): Promise<RecentActivity[]> => {
+  getRecentActivities: async (
+    per_page: number = 10,
+    page: number = 1
+  ): Promise<PaginatedData<RecentActivity>> => {
     try {
-      const params = { limit: limit.toString() };
-      // Sử dụng axiosRequest với method GET và truyền params vào config
+      const params = {
+        per_page: per_page.toString(),
+        page: page.toString(),
+      };
       const response = await axiosRequest<any>('/admin/recent-activities', 'GET', undefined, { params });
       return response.data;
     } catch (error) {
@@ -187,6 +201,68 @@ const statisticApi = {
       throw error;
     }
   },
+  // /**
+  //  * Lấy danh sách sản phẩm bán chạy nhất.
+  //  * Tương ứng với: GET /api/admin/top-selling-products
+  //  * @param {number} [limit=5] Số lượng sản phẩm muốn lấy
+  //  * @param {'weekly' | 'monthly' | 'quarterly' | 'yearly'} [period='monthly'] Khoảng thời gian
+  //  * @returns {Promise<TopSellingProduct[]>}
+  //  */
+  // getTopSellingProducts: async (
+  //   limit: number = 5,
+  //   period: 'weekly' | 'monthly' | 'quarterly' | 'yearly' = 'monthly'
+  // ): Promise<TopSellingProduct[]> => {
+  //   try {
+  //     const params = {
+  //       limit: limit.toString(),
+  //       period: period,
+  //     };
+  //     // Sử dụng axiosRequest với method GET và truyền params vào config
+  //     const response = await axiosRequest<any>('/admin/top-selling-products', 'GET', undefined, { params });
+  //     return response.data;
+  //   } catch (error) {
+  //     console.error("Error fetching top selling products:", error);
+  //     throw error;
+  //   }
+  // },
+
+  // /**
+  //  * Lấy danh sách cảnh báo tồn kho thấp hoặc sắp hết hạn.
+  //  * Tương ứng với: GET /api/admin/stock-alerts
+  //  * @param {'low_stock' | 'expired_soon'} [type] Lọc theo loại cảnh báo
+  //  * @returns {Promise<StockAlert[]>}
+  //  */
+  // getStockAlerts: async (type?: 'low_stock' | 'expired_soon'): Promise<StockAlert[]> => {
+  //   try {
+  //     const params: { type?: string } = {};
+  //     if (type) params.type = type;
+
+  //     // Sử dụng axiosRequest với method GET và truyền params vào config
+  //     const response = await axiosRequest<any>('/admin/stock-alerts', 'GET', undefined, { params });
+  //     return response.data;
+  //   } catch (error) {
+  //     console.error("Error fetching stock alerts:", error);
+  //     throw error;
+  //   }
+  // },
+
+  // /**
+  //  * Lấy các hoạt động gần đây (nhập và xuất).
+  //  * Tương ứng với: GET /api/admin/recent-activities
+  //  * @param {number} [limit=10] Số lượng hoạt động muốn lấy
+  //  * @returns {Promise<RecentActivity[]>}
+  //  */
+  // getRecentActivities: async (limit: number = 10): Promise<RecentActivity[]> => {
+  //   try {
+  //     const params = { limit: limit.toString() };
+  //     // Sử dụng axiosRequest với method GET và truyền params vào config
+  //     const response = await axiosRequest<any>('/admin/recent-activities', 'GET', undefined, { params });
+  //     return response.data;
+  //   } catch (error) {
+  //     console.error("Error fetching recent activities:", error);
+  //     throw error;
+  //   }
+  // },
 };
 
 export default statisticApi;

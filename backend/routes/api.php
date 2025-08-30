@@ -29,6 +29,7 @@ use App\Http\Controllers\RecommenderSettingsController;
 use App\Http\Controllers\RecommenderPerformanceController;
 use App\Http\Controllers\WeightedEventController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\BayesianOptimizationSpaceController;
 // use app\Http\Middleware\RoleMiddleware;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
@@ -59,6 +60,8 @@ Route::prefix('auth')->group(function () {
 
 Route::middleware(['jwt.auth'])->group(function () {
 
+
+
      // GET /api/notifications/unread
     // Lấy danh sách các thông báo chưa đọc của người dùng hiện tại
     Route::get('/notifications/unread', [NotificationController::class, 'getUnread']);
@@ -83,6 +86,10 @@ Route::middleware(['jwt.auth'])->group(function () {
 
     Route::middleware('role:admin')->group(function (){
         Route::prefix('admin')->group(function () {
+
+
+
+            Route::put('/recommender/spaces',[BayesianOptimizationSpaceController::class,'bulkUpdate']);
 
             Route::get('/recommender/performances',[RecommenderPerformanceController::class,'getPerformanceData']);
 
@@ -279,7 +286,9 @@ Route::middleware(['jwt.auth'])->group(function () {
     
     
 }); // ngoặc xác thực api
+Route::get('/recommender/spaces',[BayesianOptimizationSpaceController::class,'index']);
 
+ Route::get('/recommender/run-python-script',[RecommenderPerformanceController::class,'executePythonScript']);
 
 Route::post('/weighted-events', [WeightedEventController::class, 'store']);
 
@@ -332,6 +341,5 @@ Route::get('/vouchers',[VoucherController::class,'index']); // get all
 
 
  Route::get('/vnpay/return',        [VnPayController::class, 'vnpayReturn']);
-// Route::post('/vnpay/ipn',         [VnPayController::class, 'vnpayIpn']);
 
      });

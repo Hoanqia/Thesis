@@ -121,25 +121,69 @@ class ProductController extends Controller
             return ApiExceptionHandler::handleException($e);
         }
     }
-    public function getAllByCatSlug($slug){
-        $category = Category::where('slug',$slug)->first();
-        if(!$category){
+    // public function getAllByCatSlug($slug){
+    //     $category = Category::where('slug',$slug)->first();
+    //     if(!$category){
+    //         return response()->json([
+    //             'messsage' => 'Not found category',
+    //             'status' => 'error',
+    //         ],404);
+    //     }
+    //     try {
+    //         $products = $this->productService->getProductsByCatId($category->id);
+    //         return response()->json([
+    //             'message' => $products->isEmpty() ? 'Không có sản phẩm' : 'Lấy danh sách thành công',
+    //             'status' => 'success',
+    //             'data' => $products,
+    //         ]);
+    //     }catch(\Exception $e){
+    //         return ApiExceptionHandler::handleException($e);
+    //     }
+    // }
+
+     /**
+     * Lấy danh sách sản phẩm theo slug danh mục với phân trang.
+     *
+     * @param Request $request Đối tượng Request chứa các tham số page và limit.
+     * @param string $slug Slug của danh mục.
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getAllByCatSlug(Request $request, $slug)
+    {
+        $category = Category::where('slug', $slug)->first();
+
+        if (!$category) {
             return response()->json([
-                'messsage' => 'Not found category',
+                'message' => 'Not found category',
                 'status' => 'error',
-            ],404);
+            ], 404);
         }
+
         try {
-            $products = $this->productService->getProductsByCatId($category->id);
+            // Lấy tham số page và limit từ request, với giá trị mặc định
+            $limit = $request->input('limit', 20); // Mặc định 20 sản phẩm mỗi trang
+            $page = $request->input('page', 1);   // Mặc định là trang 1
+
+            // Gọi service với các tham số phân trang
+            $result = $this->productService->getProductsByCatId($category->id, $limit, $page);
+
+            // Xử lý thông báo dựa trên dữ liệu trả về
+            $message = ($result['data']->isEmpty() && $result['meta']['total'] === 0)
+                        ? 'Không có sản phẩm nào cho danh mục này.'
+                        : 'Lấy danh sách thành công.';
+
             return response()->json([
-                'message' => $products->isEmpty() ? 'Không có sản phẩm' : 'Lấy danh sách thành công',
+                'message' => $message,
                 'status' => 'success',
-                'data' => $products,
+                'data' => $result['data'], // Collection các sản phẩm
+                'meta' => $result['meta'], // Thông tin phân trang
             ]);
-        }catch(\Exception $e){
+        } catch (\Exception $e) {
+            // Đảm bảo ApiExceptionHandler::handleException được định nghĩa đúng cách
             return ApiExceptionHandler::handleException($e);
         }
     }
+    
     public function get($slug)
     {
         try {

@@ -349,7 +349,7 @@ class StockLotService
                 $q->where('supplier_id', $filters['supplier_id']);
             });
         }
-        
+        $query->orderByRaw('(quantity_in - quantity_out) > 0 desc');
         // Sắp xếp mặc định theo FIFO: lô cũ nhất trước
         $query->orderBy('purchase_date', 'asc')
               ->orderBy('id', 'asc');

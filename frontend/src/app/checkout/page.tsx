@@ -229,7 +229,7 @@ const placeOrder = async () => {
   const formatVND = (value: number) =>
     new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(value);
 
-  const shippingCost = 40000;
+  const shippingCost = 30000;
   const subtotal = selectedItems.reduce((sum, i) => sum + i.price_at_time * i.quantity, 0);
 
   let shippingDiscount = 0;

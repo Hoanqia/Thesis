@@ -25,7 +25,6 @@ export default function HeroSection() {
           For your job, study or housework, everything you need is here
         </p>
 
-        ✅ Search Bar đẹp như mẫu
         {/* <div className="flex items-center bg-white rounded-full overflow-hidden w-full max-w-xl mx-auto">
           <input
           type="text"

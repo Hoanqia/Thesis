@@ -67,6 +67,25 @@ export default function OrdersPage() {
     }
   };
 
+  const handleConfirmReceived = async (orderId: number) => {
+    try {
+      await toast.promise(
+        customerOrderApi.confirmReceived(orderId), // Gọi API confirmReceived
+        {
+          loading: 'Đang xác nhận đã nhận hàng...',
+          success: 'Xác nhận đã nhận hàng thành công!',
+          error: 'Xác nhận thất bại.',
+        }
+      );
+      // Sau khi xác nhận thành công, fetch lại danh sách đơn hàng để cập nhật trạng thái
+      await fetchOrders();
+      setCurrentPage(1); // Có thể reset về trang 1 hoặc giữ nguyên trang tùy logic mong muốn
+    } catch (err) {
+      console.error(err);
+      // Xử lý lỗi cụ thể nếu cần, ví dụ: toast.error(err.response?.data?.message || 'Lỗi không xác định.');
+    }
+  };
+
   // Mới: gọi khi bấm "Đánh giá cả đơn"
   // Truyền đúng type để khớp OrderCard onRateOrder signature
   const handleRateOrder = (order: Order) => {
@@ -145,6 +164,7 @@ export default function OrdersPage() {
                 order={o}
                 onCancel={handleCancel}
                 onRateOrder={handleRateOrder}
+                onConfirmReceived={handleConfirmReceived}
               />
             ))
           ) : (

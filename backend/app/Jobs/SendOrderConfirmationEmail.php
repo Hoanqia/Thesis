@@ -66,7 +66,8 @@ class SendOrderConfirmationEmail implements ShouldQueue
             // Tạo đối tượng Message và thiết lập nội dung email thô (raw message)
             $message = new Message();
             $rawMessage = $this->createMessage($senderEmail, $recipientEmail, $subject, $emailContent);
-            $message->setRaw(base64_encode($rawMessage)); // Mã hóa Base64Url
+            // $message->setRaw(base64_encode($rawMessage)); // Mã hóa Base64Url
+            $message->setRaw(rtrim(strtr(base64_encode($rawMessage), '+/', '-_'), '='));
 
             // Gửi email
             $service->users_messages->send('me', $message);

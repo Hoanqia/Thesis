@@ -2,7 +2,7 @@
 // "use client";
 
 // import { useEffect, useState } from "react";
-// import { recommendApi, RecommendationItem , RecommendationResponse} from "@/features/recommendations/api/recommendationApi";
+// import { recommendApi, RecommendationItem , RecommendationResponse} from "@/features/products/api/productApi";
 // import { ProductCard } from "@/features/products/components/ProductCard";
 // import { Skeleton } from "@/components/ui/skeleton";
 // import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -49,6 +49,7 @@
 //          }
 
 //         if (res && res.status === "success" && Array.isArray(res.data)) {
+//           console.log("Similar Product: ", res.data);
 //           setRecommendations(res.data);
 //         } else if (res) {
 //           console.error("Failed to fetch recommendations:", res.message);
@@ -126,7 +127,7 @@
 //             return (
 //               <div key={idx} className="flex-shrink-0 w-1/6">
 //                 {item ? (
-//                   <ProductCard product={item.product} categorySlug={categorySlug} />
+//                   <ProductCard product={item.product} categorySlug={categorySlug} variants={item.product.variants} />
 //                 ) : (
 //                   <div className="border border-gray-200 rounded-lg h-full" />
 //                 )}
@@ -147,17 +148,21 @@
 // }
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { recommendApi, RecommendationItem, RecommendationResponse } from "@/features/recommendations/api/recommendationApi";
+import { useEffect, useState } from "react";
+import { recommendApi, RecommendationItem , RecommendationResponse} from "@/features/products/api/productApi";
 import { ProductCard } from "@/features/products/components/ProductCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 
 const VISIBLE_SLOTS = 6;
-const ITEM_WIDTH_PERCENTAGE = 100 / VISIBLE_SLOTS; // Mỗi item chiếm bao nhiêu phần trăm chiều rộng của container
+// Chiều rộng của mỗi ProductCard (bao gồm cả margin/gap)
+// Giả sử mỗi thẻ ProductCard có width là 1/6 của container cha (100% / 6 = 16.666%)
+// và có space-x-4 (16px) -> cần tính toán chính xác hơn nếu có nhiều yếu tố
+// Để đơn giản, ta sẽ dùng 100% / VISIBLE_SLOTS làm đơn vị cuộn.
+const CARD_WIDTH_PERCENT = 100 / VISIBLE_SLOTS; // Ví dụ: 16.666% cho 6 slot
 
-interface RecommendationCarouselProps {
+interface RecommendationCarouselProps{
   categorySlug: string;
   productSlug?: string;
 }
@@ -165,10 +170,10 @@ interface RecommendationCarouselProps {
 export default function RecommendationCarousel({ categorySlug, productSlug }: RecommendationCarouselProps) {
   const [recommendations, setRecommendations] = useState<RecommendationItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentIndex, setCurrentIndex] = useState(0); // Đổi tên từ startIndex thành currentIndex để rõ ràng hơn
+  const [startIndex, setStartIndex] = useState(0);
   const [hydrated, setHydrated] = useState(false);
   const checkAuth = useAuthStore((state) => state.checkAuth);
-  const carouselInnerRef = useRef<HTMLDivElement>(null); // Ref để điều khiển phần tử bên trong carousel
+  const isLoggedIn = useAuthStore(state => state.isLoggedIn);
 
   useEffect(() => {
     checkAuth();
@@ -185,11 +190,13 @@ export default function RecommendationCarousel({ categorySlug, productSlug }: Re
       setLoading(true);
       try {
         let res: RecommendationResponse | null = null;
+
         if (productSlug) {
           res = await recommendApi.getSimilarItemsByProductId(productSlug);
         }
 
         if (res && res.status === "success" && Array.isArray(res.data)) {
+          console.log("Similar Product: ", res.data);
           setRecommendations(res.data);
         } else if (res) {
           console.error("Failed to fetch recommendations:", res.message);
@@ -202,15 +209,7 @@ export default function RecommendationCarousel({ categorySlug, productSlug }: Re
     }
 
     fetchItems();
-  }, [hydrated, productSlug]); // Loại bỏ isLoggedIn vì không sử dụng trong logic fetchItems hiện tại
-
-  // Cập nhật vị trí cuộn khi currentIndex thay đổi
-  useEffect(() => {
-    if (carouselInnerRef.current) {
-      // Calculate scroll position based on current index and item width
-      carouselInnerRef.current.style.transform = `translateX(-${currentIndex * ITEM_WIDTH_PERCENTAGE}%)`;
-    }
-  }, [currentIndex]);
+  }, [hydrated, isLoggedIn, productSlug]);
 
   if (loading) {
     return (
@@ -219,8 +218,8 @@ export default function RecommendationCarousel({ categorySlug, productSlug }: Re
           <h2 className="text-xl font-bold">Sản phẩm gợi ý</h2>
         </div>
         <div className="flex items-center">
-          <Skeleton className="w-8 h-8 rounded-full" />
-          <div className="flex space-x-4 ml-4 overflow-hidden flex-1">
+          <Skeleton className="w-8 h-8" />
+          <div className="flex space-x-4 ml-4 overflow-hidden">
             {Array.from({ length: VISIBLE_SLOTS }).map((_, i) => (
               <Skeleton
                 key={i}
@@ -228,7 +227,7 @@ export default function RecommendationCarousel({ categorySlug, productSlug }: Re
               />
             ))}
           </div>
-          <Skeleton className="w-8 h-8 ml-4 rounded-full" />
+          <Skeleton className="w-8 h-8 ml-4" />
         </div>
       </div>
     );
@@ -243,14 +242,14 @@ export default function RecommendationCarousel({ categorySlug, productSlug }: Re
     );
   }
 
-  const maxIndex = Math.max(0, recommendations.length - VISIBLE_SLOTS);
+  const maxStart = Math.max(recommendations.length - VISIBLE_SLOTS, 0);
 
   const handlePrev = () => {
-    setCurrentIndex((prev) => Math.max(prev - 1, 0));
+    setStartIndex((prev) => Math.max(prev - 1, 0));
   };
 
   const handleNext = () => {
-    setCurrentIndex((prev) => Math.min(prev + 1, maxIndex));
+    setStartIndex((prev) => Math.min(prev + 1, maxStart));
   };
 
   return (
@@ -258,31 +257,38 @@ export default function RecommendationCarousel({ categorySlug, productSlug }: Re
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-bold">Sản phẩm gợi ý</h2>
       </div>
-      <div className="flex items-center relative"> {/* Thêm relative để định vị nút điều hướng */}
+      <div className="flex items-center relative"> {/* Thêm relative cho container để định vị nút */}
         <button
           onClick={handlePrev}
-          disabled={currentIndex === 0}
-          className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-50 z-10 absolute left-0 transform -translate-x-1/2 bg-white shadow-md" // Nút trái
+          disabled={startIndex === 0}
+          className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-50 absolute left-0 z-10 top-1/2 -translate-y-1/2" // Thêm absolute và z-index
         >
           <ChevronLeft />
         </button>
-        <div className="flex-1 overflow-hidden"> {/* Container bao bọc phần tử trượt */}
+        {/* Container cho các sản phẩm có overflow-hidden và transition */}
+        <div className="flex-1 overflow-hidden">
           <div
-            ref={carouselInnerRef}
-            className="flex transition-transform duration-300 ease-in-out" // Áp dụng transition ở đây
-            style={{ width: `${recommendations.length * ITEM_WIDTH_PERCENTAGE}%` }} // Tổng chiều rộng của tất cả các item
+            className="flex space-x-4 transition-transform duration-500 ease-in-out"
+            style={{
+              transform: `translateX(-${startIndex * CARD_WIDTH_PERCENT}%)`
+            }}
           >
+            {/* Hiển thị tất cả các sản phẩm, việc cuộn được điều khiển bởi translateX */}
             {recommendations.map((item, idx) => (
-              <div key={item.product.id || idx} className="flex-shrink-0" style={{ width: `${ITEM_WIDTH_PERCENTAGE}%` }}>
-                <ProductCard product={item.product} categorySlug={categorySlug} />
+              <div key={idx} className="flex-shrink-0 w-1/6">
+                <ProductCard
+                  product={item.product}
+                  categorySlug={categorySlug}
+                  variants={item.product.variants}
+                />
               </div>
             ))}
           </div>
         </div>
         <button
           onClick={handleNext}
-          disabled={currentIndex === maxIndex}
-          className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-50 z-10 absolute right-0 transform translate-x-1/2 bg-white shadow-md" // Nút phải
+          disabled={startIndex === maxStart}
+          className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-50 absolute right-0 z-10 top-1/2 -translate-y-1/2" // Thêm absolute và z-index
         >
           <ChevronRight />
         </button>

@@ -11,6 +11,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
+
 class ProductService
 {   
     //   public function searchProducts(string $query, int $limit = 10)
@@ -351,7 +353,8 @@ class ProductService
         $validated['slug'] = SlugService::createSlug($validated['name'], Product::class);
         $validated['is_featured'] = $data['is_featured'] ?? false;
         $validated['status'] = $data['status'] ?? true;
-        
+        Cache::forget("products_by_cat_{$data['cat_id']}");
+
         return Product::create($validated);
     }
 
@@ -369,36 +372,38 @@ class ProductService
     //             ->where('cat_id', $catId)
     //             ->get();    }
 
-   public function getBySlug(string $slug): ?object
+     public function getBySlugNoCache(string $slug): ?object
     {
         $sql = <<<'SQL'
 SELECT
     p.id,
-    MIN(p.name)        AS name,
-    MIN(p.slug)        AS slug,
-    MIN(p.description) AS description,
-    MIN(p.cat_id)      AS cat_id,
+    MIN(p.name)          AS name,
+    MIN(p.slug)          AS slug,
+    MIN(p.description)   AS description,
+    MIN(p.cat_id)        AS cat_id,
 
-    MIN(c.name)        AS category_name,
-    MIN(c.slug)        AS categorySlug,
+    MIN(c.name)          AS category_name,
+    MIN(c.slug)          AS categorySlug,
+    MIN(c.id_parent)     AS category_parent_id, -- Thêm id_parent của category
 
-    MIN(p.brand_id)    AS brand_id,
-    MIN(b.name)        AS brand_name,
-    MIN(b.slug)        AS brand_slug,
+    MIN(p.brand_id)      AS brand_id,
+    MIN(b.name)          AS brand_name,
+    MIN(b.slug)          AS brand_slug,
 
-    MIN(p.is_featured) AS is_featured,
-    MIN(p.status)      AS status,
+    MIN(p.is_featured)   AS is_featured,
+    MIN(p.status)        AS status,
 
-    COUNT(r.id)              AS reviews_count,
-    ROUND(AVG(r.rate), 2)    AS reviews_avg_rate
+    COUNT(r.id)                  AS reviews_count,
+    ROUND(AVG(r.rate), 2)        AS reviews_avg_rate
 
 FROM products p
-LEFT JOIN categories       c ON p.cat_id   = c.id
-LEFT JOIN brands           b ON p.brand_id = b.id
-LEFT JOIN reviews          r ON p.id       = r.product_id
+LEFT JOIN categories   c ON p.cat_id   = c.id
+LEFT JOIN brands       b ON p.brand_id = b.id
+LEFT JOIN reviews      r ON p.id       = r.product_id
 WHERE p.slug = ? -- Thay đổi điều kiện WHERE từ cat_id sang slug
 GROUP BY p.id
 SQL;
+        // LIMIT 10 OFFSET 0 không cần thiết khi lấy theo slug vì chỉ có 1 sản phẩm
 
         // Lấy thông tin sản phẩm cơ bản dựa trên slug
         $product = DB::selectOne($sql, [$slug]); // Sử dụng selectOne vì chỉ lấy 1 sản phẩm
@@ -407,12 +412,12 @@ SQL;
             return null; // Trả về null nếu không tìm thấy sản phẩm
         }
 
-        // Lấy variants + specs (thêm product_name vào đây để tạo full_name)
+        // Lấy variants và tất cả dữ liệu spec liên quan cho sản phẩm này
         $productId = $product->id;
-        // Vì chỉ có 1 sản phẩm, không cần tạo placeholders, chỉ truyền trực tiếp ID
-        $variantsRaw = DB::select(<<<"SQL"
+
+        $variantsAndSpecsRaw = DB::select(<<<"SQL"
 SELECT
-    v.id,
+    v.id AS variant_id,
     v.product_id,
     v.sku,
     v.price,
@@ -424,68 +429,167 @@ SELECT
         WHERE rs.variant_id = v.id
           AND rs.expires_at > NOW()
     ), 0) AS available_stock,
-    v.image         AS image_path,
-    p.name          AS product_name, -- Thêm product_name từ bảng products
-    s.name          AS spec_name,
-    COALESCE(so.value, vs.value_text, vs.value_int, vs.value_decimal) AS spec_value
+    v.image AS image_path,
+    v.profit_percent, -- Thêm các thuộc tính còn thiếu từ interface Variant
+    v.average_cost,
+    v.status, -- Thêm status cho Variant
+
+    p.name AS product_name, -- product_name cho full_name
+
+    -- Dữ liệu cho SpecValue
+    vs.id AS spec_value_id,
+    vs.spec_id,
+    vs.value_text,
+    vs.value_int,
+    vs.value_decimal,
+    vs.option_id,
+    vs.created_at AS spec_value_created_at,
+    vs.updated_at AS spec_value_updated_at,
+
+    -- Dữ liệu cho Specification
+    s.name AS specification_name,
+    s.data_type,
+    s.unit,
+    s.description AS specification_description,
+    s.created_at AS specification_created_at,
+    s.updated_at AS specification_updated_at,
+
+    -- Dữ liệu cho SpecOption
+    so.value AS spec_option_value,
+    so.created_at AS spec_option_created_at,
+    so.updated_at AS spec_option_updated_at
 FROM product_variants v
 JOIN products p ON v.product_id = p.id
 LEFT JOIN variant_spec_values vs ON vs.variant_id = v.id
-LEFT JOIN specifications    s  ON vs.spec_id      = s.id
-LEFT JOIN spec_options      so ON vs.option_id    = so.id
+LEFT JOIN specifications s ON vs.spec_id = s.id
+LEFT JOIN spec_options so ON vs.option_id = so.id
 WHERE v.product_id = ? -- Điều kiện WHERE cho 1 product_id cụ thể
-ORDER BY v.id, s.name
+ORDER BY v.id, s.name -- Sắp xếp theo variant ID và tên spec để dễ xử lý
 SQL
-        , [$productId]); // Truyền $productId vào đây
+        , [$productId]);
 
-        // Gom nhóm specs → variants và tính toán full_name
+        // Debugging variantsAndSpecsRaw
+        // Log::info('Variants and Specs Raw Data for single product:', (array)$variantsAndSpecsRaw);
+
+
+        // Gom nhóm dữ liệu để tạo cấu trúc Variants và SpecValues
         $variantsMap = [];
-        foreach ($variantsRaw as $r) {
-            if (!isset($variantsMap[$r->id])) {
-                $variantsMap[$r->id] = [
-                    'id'                => $r->id,
-                    'product_id'        => $r->product_id,
-                    'sku'               => $r->sku,
-                    'price'             => $r->price,
-                    'discount'          => $r->discount,
-                    'stock'             => $r->stock,
-                    'available_stock'   => $r->available_stock,
-                    'image_url'         => asset('storage/') . '/' . $r->image_path,
-                    'product_name'      => $r->product_name,
-                    'specs'             => [],
+        foreach ($variantsAndSpecsRaw as $r) {
+            $variantId = $r->variant_id;
+
+            // Khởi tạo variant nếu chưa có
+            if (!isset($variantsMap[$variantId])) {
+                $variantsMap[$variantId] = [
+                    'id'                        => $r->variant_id,
+                    'product_id'                => $r->product_id,
+                    'sku'                       => $r->sku,
+                    'price'                     => $r->price,
+                    'discount'                  => $r->discount,
+                    'stock'                     => $r->stock,
+                    'available_stock_for_sale'  => $r->available_stock, // Đổi tên để khớp với frontend
+                    'image_url'                 => $r->image_path ? asset('storage/' . $r->image_path) : null, // Xử lý null image_path
+                    'profit_percent'            => $r->profit_percent ?? 0, // Giá trị mặc định 0 nếu null
+                    'average_cost'              => $r->average_cost ?? 0, // Giá trị mặc định 0 nếu null
+                    'status'                    => $r->status, // Thêm status cho Variant
+                    'product_name'              => $r->product_name, // Để xây dựng full_name
+                    'variant_spec_values'       => [], // Khởi tạo mảng rỗng cho spec values
+                    // Các thuộc tính khác từ interface Variant nếu cần
+                    // 'category_name' => null, // Không có sẵn trực tiếp từ join này, hoặc cần thêm join nếu cần
+                    // 'product' => null, // Sẽ được gắn sau
+                    // 'variant_from_suppliers' => [], // Giả định không có trong truy vấn này
+                    // 'selected_supplier_id' => null,
+                    // 'selected_supplier_price' => null,
                 ];
             }
-            $variantsMap[$r->id]['specs'][] = [
-                'spec_name' => $r->spec_name,
-                'value'     => $r->spec_value,
-            ];
+
+            // Thêm SpecValue vào variant_spec_values nếu tồn tại dữ liệu spec
+            if ($r->spec_value_id !== null) { // Chỉ thêm nếu có SpecValue thực sự
+                $specValue = [
+                    'id'            => $r->spec_value_id,
+                    'variant_id'    => $r->variant_id,
+                    'spec_id'       => $r->spec_id,
+                    'value_text'    => $r->value_text,
+                    'value_int'     => $r->value_int !== null ? (int)$r->value_int : null,
+                    'value_decimal' => $r->value_decimal !== null ? (float)$r->value_decimal : null,
+                    'option_id'     => $r->option_id,
+                    'created_at'    => $r->spec_value_created_at,
+                    'updated_at'    => $r->spec_value_updated_at,
+                    'specification' => [
+                        'id'            => $r->spec_id, // Lấy ID từ spec_id của variant_spec_values
+                        'category_id'   => null, // Có thể cần JOIN thêm bảng specifications để lấy category_id
+                        'name'          => $r->specification_name,
+                        'data_type'     => $r->data_type,
+                        'unit'          => $r->unit,
+                        'description'   => $r->specification_description,
+                        'created_at'    => $r->specification_created_at,
+                        'updated_at'    => $r->specification_updated_at,
+                    ],
+                    'spec_options'  => null, // Mặc định là null
+                ];
+
+                if ($r->option_id !== null) {
+                    $specValue['spec_options'] = [
+                        'id'            => $r->option_id,
+                        'spec_id'       => $r->spec_id, // Lấy spec_id từ SpecValue
+                        'value'         => $r->spec_option_value,
+                        'created_at'    => $r->spec_option_created_at,
+                        'updated_at'    => $r->spec_option_updated_at,
+                    ];
+                }
+                $variantsMap[$variantId]['variant_spec_values'][] = $specValue;
+            }
         }
 
-        // Sau khi gom nhóm, tính full_name cho từng variant
-        foreach ($variantsMap as $variantId => $variantData) {
+        // Tính toán full_name cho từng variant (logic này vẫn giữ nguyên vì nó đã tốt)
+        foreach ($variantsMap as $variantId => &$variantData) { // Dùng & để sửa đổi trực tiếp trong map
             $baseName = $variantData['product_name'];
-            $specValues = collect($variantData['specs'])
-                ->filter(function ($spec) {
-                    $specName = $spec['spec_name'] ?? '';
+            $specValuesParts = collect($variantData['variant_spec_values'])
+                ->filter(function ($specValue) {
+                    $specName = $specValue['specification']['name'] ?? '';
                     return in_array($specName, ['Màu sắc', 'RAM', 'Dung lượng bộ nhớ']);
                 })
-                ->sortBy(function ($spec) {
+                ->sortBy(function ($specValue) {
+                    $specName = $specValue['specification']['name'] ?? '';
                     $order = ['Màu sắc' => 1, 'RAM' => 2, 'Dung lượng bộ nhớ' => 3];
-                    return $order[$spec['spec_name']] ?? 99;
+                    return $order[$specName] ?? 99;
                 })
-                ->map(function ($spec) {
-                    $value = $spec['value'];
-                    if (($spec['spec_name'] === 'RAM' || $spec['spec_name'] === 'Dung lượng bộ nhớ') && is_numeric($value)) {
+                ->map(function ($specValue) {
+                    $value = null;
+                    switch ($specValue['specification']['data_type']) {
+                        case 'int':
+                            $value = $specValue['value_int'];
+                            break;
+                        case 'decimal':
+                            $value = $specValue['value_decimal'];
+                            break;
+                        case 'text':
+                            $value = $specValue['value_text'];
+                            break;
+                        case 'option':
+                            $value = $specValue['spec_options']['value'] ?? null;
+                            break;
+                    }
+
+                    if ($value === null) return null; // Bỏ qua giá trị null
+
+                    // Thêm đơn vị 'GB' cho RAM/Dung lượng bộ nhớ
+                    if (($specValue['specification']['name'] === 'RAM' || $specValue['specification']['name'] === 'Dung lượng bộ nhớ') && is_numeric($value)) {
                         return $value . ' GB';
                     }
                     return $value;
                 })
-                ->filter()
+                ->filter() // Lọc bỏ các giá trị null/empty sau map
                 ->implode(' - ');
 
-            $variantsMap[$variantId]['full_name'] = $baseName . ($specValues ? ' - ' . $specValues : '');
-            // unset($variantsMap[$variantId]['product_name']); // Tùy chọn: xóa nếu không cần hiển thị
+            $variantData['full_name'] = $baseName . ($specValuesParts ? ' - ' . $specValuesParts : '');
+
+            // Xóa product_name khỏi variant nếu bạn không muốn nó hiển thị trực tiếp
+            unset($variantData['product_name']);
         }
+
+        // Debugging variantsMap
+        // Log::info('Processed Variants Map for single product:', $variantsMap);
+
 
         // Đính variants, brand & category vào product
         $product->brand = [
@@ -494,70 +598,137 @@ SQL
             'slug' => $product->brand_slug,
         ];
         $product->category = [
-            'id'   => $product->cat_id,
-            'name' => $product->category_name,
-            'slug' => $product->categorySlug,
+            'id'       => $product->cat_id,
+            'name'     => $product->category_name,
+            'slug'     => $product->categorySlug,
+            'id_parent' => $product->category_parent_id, // Thêm id_parent vào category
         ];
 
-        $product->variants = [];
-        foreach ($variantsMap as $v) {
-            // Ép kiểu về int để đảm bảo so sánh chính xác giữa các ID số
-            if ((int)($v['product_id'] ?? null) === (int)$product->id) {
-                $product->variants[] = $v;
-            }
-        }
+        // Lấy tất cả variants từ map (vì chỉ có 1 sản phẩm)
+        $product->variants = array_values($variantsMap);
 
-        // Có thể unset các trường brand_id, brand_name, brand_slug, cat_id, category_name, categorySlug
-        // từ $product nếu bạn chỉ muốn chúng nằm trong các mảng con $p->brand và $p->category
-        unset($product->brand_id, $product->brand_name, $product->brand_slug, $product->cat_id, $product->category_name, $product->categorySlug);
+        // Xóa các trường không cần thiết ở cấp độ Product sau khi đã chuyển vào các object con
+        unset(
+            $product->brand_id,
+            $product->brand_name,
+            $product->brand_slug,
+            $product->cat_id,
+            $product->category_name,
+            $product->categorySlug,
+            $product->category_parent_id // Xóa cả cái này sau khi đã gắn vào category object
+        );
+
+        // Debugging final product object
+        // Log::info('Final Product Object:', (array)$product);
+
 
         return $product;
     }
-     public function getProductsByCatId(int $catId): Collection
+   public function getBySlug(string $slug): ?object{
+         return Cache::remember("get_by_slug_{$slug}", now()->addMinutes(10), function () use ($slug) {
+        return $this->getBySlugNoCache($slug);
+    });
+   }
+
+
+/**
+     * Lấy danh sách sản phẩm theo ID danh mục với phân trang.
+     * Trả về dữ liệu sản phẩm theo cấu trúc Collection đã có, nhưng được bao bọc bởi thông tin phân trang.
+     *
+     * @param int $catId ID của danh mục.
+     * @param int $limit Số sản phẩm trên mỗi trang (mặc định 20).
+     * @param int $page Số trang hiện tại (mặc định 1).
+     * @return array Trả về mảng chứa 'data' (Collection sản phẩm) và các thông tin phân trang.
+     */
+    public function getProductsByCatIdNoCache(int $catId, int $limit = 20, int $page = 1): array
     {
-        $sql = <<<'SQL'
-SELECT
-    p.id,
-    MIN(p.name)        AS name,
-    MIN(p.slug)        AS slug,
-    MIN(p.description) AS description,
-    MIN(p.cat_id)      AS cat_id,
+        // Tính toán OFFSET
+        $offset = ($page - 1) * $limit;
 
-    MIN(c.name)        AS category_name,
-    MIN(c.slug)        AS categorySlug,
-
-    MIN(p.brand_id)    AS brand_id,
-    MIN(b.name)        AS brand_name,
-    MIN(b.slug)        AS brand_slug,
-
-    MIN(p.is_featured) AS is_featured,
-    MIN(p.status)      AS status,
-
-    COUNT(r.id)              AS reviews_count,
-    ROUND(AVG(r.rate), 2)    AS reviews_avg_rate
-
+        // --- Bước 1: Lấy tổng số sản phẩm cho danh mục để tính toán phân trang ---
+        $totalSql = <<<'SQL'
+SELECT COUNT(p.id) AS total_products
 FROM products p
-LEFT JOIN categories       c ON p.cat_id   = c.id
-LEFT JOIN brands           b ON p.brand_id = b.id
-LEFT JOIN reviews          r ON p.id       = r.product_id
 WHERE p.cat_id = ?
-GROUP BY p.id
 SQL;
+        $totalResult = DB::selectOne($totalSql, [$catId]);
+        $totalProducts = $totalResult->total_products ?? 0;
 
-        // Lấy products cơ bản
-        $products = DB::select($sql, [$catId]);
-
-        if (empty($products)) {
-            return collect();
+        // Nếu không có sản phẩm nào, trả về mảng rỗng ngay lập tức với thông tin phân trang
+        if ($totalProducts === 0) {
+            return [
+                'data' => collect(), // Vẫn là một Collection rỗng
+                'meta' => [ // Sử dụng 'meta' để chứa thông tin phân trang
+                    'total' => 0,
+                    'per_page' => $limit,
+                    'current_page' => $page,
+                    'last_page' => 0,
+                    'from' => null,
+                    'to' => null,
+                ]
+            ];
         }
 
-        // Lấy variants + specs (thêm product_name vào đây để tạo full_name)
-        $ids = array_column($products, 'id');
-        $placeholders = implode(',', array_fill(0, count($ids), '?'));
-
-        $variantsRaw = DB::select(<<<"SQL"
+        // --- Bước 2: Lấy sản phẩm cho trang hiện tại với LIMIT và OFFSET ---
+        $productSql = <<<'SQL'
 SELECT
-    v.id,
+    p.id,
+    MIN(p.name)           AS name,
+    MIN(p.slug)           AS slug,
+    MIN(p.description)    AS description,
+    MIN(p.cat_id)         AS cat_id,
+
+    MIN(c.name)           AS category_name,
+    MIN(c.slug)           AS categorySlug,
+    MIN(c.id_parent)      AS category_parent_id, -- Thêm id_parent của category
+
+    MIN(p.brand_id)       AS brand_id,
+    MIN(b.name)           AS brand_name,
+    MIN(b.slug)           AS brand_slug,
+
+    MIN(p.is_featured)    AS is_featured,
+    MIN(p.status)         AS status,
+
+    COUNT(r.id)                 AS reviews_count,
+    ROUND(AVG(r.rate), 2)       AS reviews_avg_rate
+
+FROM products p
+LEFT JOIN categories   c ON p.cat_id   = c.id
+LEFT JOIN brands       b ON p.brand_id = b.id
+LEFT JOIN reviews      r ON p.id       = r.product_id
+WHERE p.cat_id = ?
+GROUP BY p.id
+ORDER BY p.id -- Thêm ORDER BY để đảm bảo thứ tự ổn định khi phân trang
+LIMIT ? OFFSET ?
+SQL;
+
+        // Lấy products cơ bản cho trang hiện tại
+        $products = DB::select($productSql, [$catId, $limit, $offset]);
+
+        // Tính toán lại productIds sau khi đã phân trang
+        $productIds = array_column($products, 'id');
+
+        // Nếu không có sản phẩm nào trên trang này, nhưng có tổng sản phẩm (trường hợp trang cuối cùng trống)
+        if (empty($products)) {
+            return [
+                'data' => collect(),
+                'meta' => [
+                    'total' => $totalProducts,
+                    'per_page' => $limit,
+                    'current_page' => $page,
+                    'last_page' => ceil($totalProducts / $limit),
+                    'from' => null,
+                    'to' => null,
+                ]
+            ];
+        }
+
+        // --- Các phần còn lại của logic xử lý sản phẩm và variants giữ nguyên ---
+        $placeholders = implode(',', array_fill(0, count($productIds), '?'));
+
+        $variantsAndSpecsRaw = DB::select(<<<"SQL"
+SELECT
+    v.id AS variant_id,
     v.product_id,
     v.sku,
     v.price,
@@ -569,78 +740,144 @@ SELECT
         WHERE rs.variant_id = v.id
           AND rs.expires_at > NOW()
     ), 0) AS available_stock,
-    v.image         AS image_path,
-    p.name          AS product_name, -- Thêm product_name từ bảng products
-    s.name          AS spec_name,
-    COALESCE(so.value, vs.value_text, vs.value_int, vs.value_decimal) AS spec_value
-FROM product_variants v
-JOIN products p ON v.product_id = p.id -- JOIN với bảng products
-LEFT JOIN variant_spec_values vs ON vs.variant_id = v.id
-LEFT JOIN specifications    s  ON vs.spec_id      = s.id
-LEFT JOIN spec_options      so ON vs.option_id    = so.id
-WHERE v.product_id IN ({$placeholders})
-ORDER BY v.id, s.name -- Order by s.name để sắp xếp specs theo mong muốn
-SQL
-        , $ids);
+    v.image AS image_path,
+    v.profit_percent,
+    v.average_cost,
+    v.status,
 
-        // Gom nhóm specs → variants và tính toán full_name
+    p.name AS product_name,
+
+    vs.id AS spec_value_id,
+    vs.spec_id,
+    vs.value_text,
+    vs.value_int,
+    vs.value_decimal,
+    vs.option_id,
+    vs.created_at AS spec_value_created_at,
+    vs.updated_at AS spec_value_updated_at,
+
+    s.name AS specification_name,
+    s.data_type,
+    s.unit,
+    s.description AS specification_description,
+    s.created_at AS specification_created_at,
+    s.updated_at AS specification_updated_at,
+
+    so.value AS spec_option_value,
+    so.created_at AS spec_option_created_at,
+    so.updated_at AS spec_option_updated_at
+FROM product_variants v
+JOIN products p ON v.product_id = p.id
+LEFT JOIN variant_spec_values vs ON vs.variant_id = v.id
+LEFT JOIN specifications s ON vs.spec_id = s.id
+LEFT JOIN spec_options so ON vs.option_id = so.id
+WHERE v.product_id IN ({$placeholders})
+ORDER BY v.id, s.name
+SQL
+        , $productIds);
+
         $variantsMap = [];
-        foreach ($variantsRaw as $r) {
-            // Khởi tạo variant nếu chưa có
-            if (!isset($variantsMap[$r->id])) {
-                $variantsMap[$r->id] = [
-                    'id'                => $r->id,
-                    'product_id'        => $r->product_id,
-                    'sku'               => $r->sku,
-                    'price'             => $r->price,
-                    'discount'          => $r->discount,
-                    'stock'             => $r->stock,
-                    'available_stock'   => $r->available_stock,
-                    'image_url'         => asset('storage/') . '/' . $r->image_path,
-                    'product_name'      => $r->product_name, // Lưu product_name
-                    'specs'             => [],
+        foreach ($variantsAndSpecsRaw as $r) {
+            $variantId = $r->variant_id;
+
+            if (!isset($variantsMap[$variantId])) {
+                $variantsMap[$variantId] = [
+                    'id'                        => $r->variant_id,
+                    'product_id'                => $r->product_id,
+                    'sku'                       => $r->sku,
+                    'price'                     => $r->price,
+                    'discount'                  => $r->discount,
+                    'stock'                     => $r->stock,
+                    'available_stock_for_sale'  => $r->available_stock,
+                    'image_url'                 => $r->image_path ? asset('storage/' . $r->image_path) : null,
+                    'profit_percent'            => $r->profit_percent ?? 0,
+                    'average_cost'              => $r->average_cost ?? 0,
+                    'status'                    => $r->status,
+                    'product_name'              => $r->product_name,
+                    'variant_spec_values'       => [],
                 ];
             }
-            // Thêm spec vào variant
-            $variantsMap[$r->id]['specs'][] = [
-                'spec_name' => $r->spec_name,
-                'value'     => $r->spec_value,
-            ];
+
+            if ($r->spec_value_id !== null) {
+                $specValue = [
+                    'id'            => $r->spec_value_id,
+                    'variant_id'    => $r->variant_id,
+                    'spec_id'       => $r->spec_id,
+                    'value_text'    => $r->value_text,
+                    'value_int'     => $r->value_int !== null ? (int)$r->value_int : null,
+                    'value_decimal' => $r->value_decimal !== null ? (float)$r->value_decimal : null,
+                    'option_id'     => $r->option_id,
+                    'created_at'    => $r->spec_value_created_at,
+                    'updated_at'    => $r->spec_value_updated_at,
+                    'specification' => [
+                        'id'            => $r->spec_id,
+                        'category_id'   => null,
+                        'name'          => $r->specification_name,
+                        'data_type'     => $r->data_type,
+                        'unit'          => $r->unit,
+                        'description'   => $r->specification_description,
+                        'created_at'    => $r->specification_created_at,
+                        'updated_at'    => $r->specification_updated_at,
+                    ],
+                    'spec_options'  => null,
+                ];
+
+                if ($r->option_id !== null) {
+                    $specValue['spec_options'] = [
+                        'id'            => $r->option_id,
+                        'spec_id'       => $r->spec_id,
+                        'value'         => $r->spec_option_value,
+                        'created_at'    => $r->spec_option_created_at,
+                        'updated_at'    => $r->spec_option_updated_at,
+                    ];
+                }
+                $variantsMap[$variantId]['variant_spec_values'][] = $specValue;
+            }
         }
 
-        // Sau khi gom nhóm, tính full_name cho từng variant
-        foreach ($variantsMap as $variantId => $variantData) {
+        foreach ($variantsMap as $variantId => &$variantData) {
             $baseName = $variantData['product_name'];
-            $specValues = collect($variantData['specs'])
-                ->filter(function ($spec) {
-                    // Chỉ lấy 3 đặc điểm cần thiết cho full_name
-                    $specName = $spec['spec_name'] ?? '';
+            $specValuesParts = collect($variantData['variant_spec_values'])
+                ->filter(function ($specValue) {
+                    $specName = $specValue['specification']['name'] ?? '';
                     return in_array($specName, ['Màu sắc', 'RAM', 'Dung lượng bộ nhớ']);
                 })
-                ->sortBy(function ($spec) {
-                    // Sắp xếp đúng thứ tự mong muốn: Màu sắc, RAM, Dung lượng bộ nhớ
+                ->sortBy(function ($specValue) {
+                    $specName = $specValue['specification']['name'] ?? '';
                     $order = ['Màu sắc' => 1, 'RAM' => 2, 'Dung lượng bộ nhớ' => 3];
-                    return $order[$spec['spec_name']] ?? 99; // Đảm bảo các spec khác không phá vỡ thứ tự
+                    return $order[$specName] ?? 99;
                 })
-                ->map(function ($spec) {
-                    $value = $spec['value'];
-                    // Thêm đơn vị 'GB' cho RAM/Dung lượng bộ nhớ nếu giá trị là số
-                    if (($spec['spec_name'] === 'RAM' || $spec['spec_name'] === 'Dung lượng bộ nhớ') && is_numeric($value)) {
+                ->map(function ($specValue) {
+                    $value = null;
+                    switch ($specValue['specification']['data_type']) {
+                        case 'int':
+                            $value = $specValue['value_int'];
+                            break;
+                        case 'decimal':
+                            $value = $specValue['value_decimal'];
+                            break;
+                        case 'text':
+                            $value = $specValue['value_text'];
+                            break;
+                        case 'option':
+                            $value = $specValue['spec_options']['value'] ?? null;
+                            break;
+                    }
+
+                    if ($value === null) return null;
+
+                    if (($specValue['specification']['name'] === 'RAM' || $specValue['specification']['name'] === 'Dung lượng bộ nhớ') && is_numeric($value)) {
                         return $value . ' GB';
                     }
                     return $value;
                 })
-                ->filter() // Lọc bỏ các giá trị null/empty sau map
-                ->implode(' - '); // Ghép các giá trị spec bằng ' - '
+                ->filter()
+                ->implode(' - ');
 
-            // Gán full_name vào variant trong variantsMap
-            $variantsMap[$variantId]['full_name'] = $baseName . ($specValues ? ' - ' . $specValues : '');
-            
-            // Xóa product_name khỏi variant nếu bạn không muốn nó hiển thị trực tiếp
-            // unset($variantsMap[$variantId]['product_name']); 
+            $variantData['full_name'] = $baseName . ($specValuesParts ? ' - ' . $specValuesParts : '');
+            unset($variantData['product_name']);
         }
 
-        // Đính variants, brand & category vào products
         $collection = collect($products)->map(function($p) use($variantsMap) {
             $p->brand = [
                 'id'   => $p->brand_id,
@@ -648,28 +885,336 @@ SQL
                 'slug' => $p->brand_slug,
             ];
             $p->category = [
-                'id'   => $p->cat_id,
-                'name' => $p->category_name,
-                'slug' => $p->categorySlug,
+                'id'        => $p->cat_id,
+                'name'      => $p->category_name,
+                'slug'      => $p->categorySlug,
+                'id_parent' => $p->category_parent_id,
             ];
 
-            $p->variants = [];
-            foreach ($variantsMap as $v) {
-                // Ép kiểu về int để đảm bảo so sánh chính xác giữa các ID số
-                if ((int)($v['product_id'] ?? null) === (int)$p->id) {
-                    $p->variants[] = $v;
-                }
-            }
+            $p->variants = collect($variantsMap)
+                            ->filter(fn($v) => (int)($v['product_id'] ?? null) === (int)$p->id)
+                            ->values()
+                            ->all();
 
-            // Có thể unset các trường brand_id, brand_name, brand_slug, cat_id, category_name, categorySlug
-            // từ $p nếu bạn chỉ muốn chúng nằm trong các mảng con $p->brand và $p->category
-            unset($p->brand_id, $p->brand_name, $p->brand_slug, $p->cat_id, $p->category_name, $p->categorySlug);
+            unset(
+                $p->brand_id,
+                $p->brand_name,
+                $p->brand_slug,
+                $p->cat_id,
+                $p->category_name,
+                $p->categorySlug,
+                $p->category_parent_id
+            );
 
             return $p;
         });
 
-        return $collection;
+        // Tính toán thông tin phân trang
+        $lastPage = ceil($totalProducts / $limit);
+        $from = ($collection->isEmpty()) ? null : $offset + 1;
+        $to = ($collection->isEmpty()) ? null : $offset + $collection->count();
+
+
+        return [
+            'data' => $collection, // Vẫn trả về Collection sản phẩm
+            'meta' => [ // Thêm meta data cho phân trang
+                'total' => $totalProducts,
+                'per_page' => $limit,
+                'current_page' => $page,
+                'last_page' => (int) $lastPage, // Chắc chắn là số nguyên
+                'from' => $from,
+                'to' => $to,
+            ]
+        ];
     }
+
+    /**
+     * Lấy danh sách sản phẩm theo ID danh mục với phân trang và cache.
+     * Lưu ý: Caching một hàm có tham số limit/page đòi hỏi key cache phức tạp hơn.
+     *
+     * @param int $catId ID của danh mục.
+     * @param int $limit Số sản phẩm trên mỗi trang (mặc định 20).
+     * @param int $page Số trang hiện tại (mặc định 1).
+     * @return array
+     */
+    public function getProductsByCatId(int $catId, int $limit = 20, int $page = 1): array
+    {
+        // Tạo key cache duy nhất cho mỗi catId, limit và page
+        $cacheKey = "products_by_cat_{$catId}_limit_{$limit}_page_{$page}";
+
+        return Cache::remember($cacheKey, now()->addMinutes(10), function () use ($catId, $limit, $page) {
+            return $this->getProductsByCatIdNoCache($catId, $limit, $page);
+        });
+    }
+
+//     public function getProductsByCatId(int $catId): Collection
+// {
+//     return Cache::remember("products_by_cat_{$catId}", now()->addMinutes(10), function () use ($catId) {
+//         return $this->getProductsByCatIdNoCache($catId);
+//     });
+// }
+// public function getProductsByCatIdNoCache(int $catId): Collection
+//     {
+//         $sql = <<<'SQL'
+// SELECT
+//     p.id,
+//     MIN(p.name)          AS name,
+//     MIN(p.slug)          AS slug,
+//     MIN(p.description)   AS description,
+//     MIN(p.cat_id)        AS cat_id,
+
+//     MIN(c.name)          AS category_name,
+//     MIN(c.slug)          AS categorySlug,
+//     MIN(c.id_parent)     AS category_parent_id, -- Thêm id_parent của category
+
+//     MIN(p.brand_id)      AS brand_id,
+//     MIN(b.name)          AS brand_name,
+//     MIN(b.slug)          AS brand_slug,
+
+//     MIN(p.is_featured)   AS is_featured,
+//     MIN(p.status)        AS status,
+
+//     COUNT(r.id)                  AS reviews_count,
+//     ROUND(AVG(r.rate), 2)        AS reviews_avg_rate
+
+// FROM products p
+// LEFT JOIN categories   c ON p.cat_id   = c.id
+// LEFT JOIN brands       b ON p.brand_id = b.id
+// LEFT JOIN reviews      r ON p.id       = r.product_id
+// WHERE p.cat_id = ?
+// GROUP BY p.id
+// LIMIT 10 OFFSET 0
+// SQL;
+
+//         // Lấy products cơ bản
+//         $products = DB::select($sql, [$catId]);
+
+//         if (empty($products)) {
+//             return collect();
+//         }
+
+//         // Lấy variants và tất cả dữ liệu spec liên quan
+//         $productIds = array_column($products, 'id');
+//         $placeholders = implode(',', array_fill(0, count($productIds), '?'));
+
+//         $variantsAndSpecsRaw = DB::select(<<<"SQL"
+// SELECT
+//     v.id AS variant_id,
+//     v.product_id,
+//     v.sku,
+//     v.price,
+//     v.discount,
+//     v.stock,
+//     v.stock - IFNULL((
+//         SELECT SUM(rs.quantity)
+//         FROM reserved_stocks rs
+//         WHERE rs.variant_id = v.id
+//           AND rs.expires_at > NOW()
+//     ), 0) AS available_stock,
+//     v.image AS image_path,
+//     v.profit_percent, -- Thêm các thuộc tính còn thiếu từ interface Variant
+//     v.average_cost,
+//     v.status,
+
+//     p.name AS product_name, -- product_name cho full_name
+
+//     -- Dữ liệu cho SpecValue
+//     vs.id AS spec_value_id,
+//     vs.spec_id,
+//     vs.value_text,
+//     vs.value_int,
+//     vs.value_decimal,
+//     vs.option_id,
+//     vs.created_at AS spec_value_created_at,
+//     vs.updated_at AS spec_value_updated_at,
+
+//     -- Dữ liệu cho Specification
+//     s.name AS specification_name,
+//     s.data_type,
+//     s.unit,
+//     s.description AS specification_description,
+//     s.created_at AS specification_created_at,
+//     s.updated_at AS specification_updated_at,
+
+//     -- Dữ liệu cho SpecOption
+//     so.value AS spec_option_value,
+//     so.created_at AS spec_option_created_at,
+//     so.updated_at AS spec_option_updated_at
+// FROM product_variants v
+// JOIN products p ON v.product_id = p.id
+// LEFT JOIN variant_spec_values vs ON vs.variant_id = v.id
+// LEFT JOIN specifications s ON vs.spec_id = s.id
+// LEFT JOIN spec_options so ON vs.option_id = so.id
+// WHERE v.product_id IN ({$placeholders})
+// ORDER BY v.id, s.name -- Sắp xếp theo variant ID và tên spec để dễ xử lý
+// SQL
+//         , $productIds);
+
+//         // Debugging variantsAndSpecsRaw
+//         // Log::info('Variants and Specs Raw Data:', (array)$variantsAndSpecsRaw);
+
+
+//         // Gom nhóm dữ liệu để tạo cấu trúc Variants và SpecValues
+//         $variantsMap = [];
+//         foreach ($variantsAndSpecsRaw as $r) {
+//             $variantId = $r->variant_id;
+
+//             // Khởi tạo variant nếu chưa có
+//             if (!isset($variantsMap[$variantId])) {
+//                 $variantsMap[$variantId] = [
+//                     'id'                        => $r->variant_id,
+//                     'product_id'                => $r->product_id,
+//                     'sku'                       => $r->sku,
+//                     'price'                     => $r->price,
+//                     'discount'                  => $r->discount,
+//                     'stock'                     => $r->stock,
+//                     'available_stock_for_sale'  => $r->available_stock, // Đổi tên để khớp với frontend
+//                     'image_url'                 => $r->image_path ? asset('storage/' . $r->image_path) : null, // Xử lý null image_path
+//                     'profit_percent'            => $r->profit_percent ?? 0,
+//                     'average_cost'              => $r->average_cost ?? 0,
+//                     'status'                    => $r->status, // Thêm status
+//                     'product_name'              => $r->product_name, // Để xây dựng full_name
+//                     'variant_spec_values'       => [], // Khởi tạo mảng rỗng cho spec values
+//                     // Các thuộc tính khác từ interface Variant nếu cần
+//                     // 'category_name' => $r->category_name // Nếu bạn muốn thêm vào Variant
+//                     // 'product' => null // Sẽ được gắn sau, không cần thiết ở đây
+//                     // 'variant_from_suppliers' => [], // Giả định không có trong truy vấn này
+//                     // 'selected_supplier_id' => null,
+//                     // 'selected_supplier_price' => null,
+//                 ];
+//             }
+
+//             // Thêm SpecValue vào variant_spec_values nếu tồn tại dữ liệu spec
+//             if ($r->spec_value_id !== null) { // Chỉ thêm nếu có SpecValue thực sự
+//                 $specValue = [
+//                     'id'            => $r->spec_value_id,
+//                     'variant_id'    => $r->variant_id,
+//                     'spec_id'       => $r->spec_id,
+//                     'value_text'    => $r->value_text,
+//                     'value_int'     => $r->value_int !== null ? (int)$r->value_int : null,
+//                     'value_decimal' => $r->value_decimal !== null ? (float)$r->value_decimal : null,
+//                     'option_id'     => $r->option_id,
+//                     'created_at'    => $r->spec_value_created_at,
+//                     'updated_at'    => $r->spec_value_updated_at,
+//                     'specification' => [
+//                         'id'            => $r->spec_id, // Lấy ID từ spec_id của variant_spec_values
+//                         'category_id'   => null, // Có thể cần JOIN thêm bảng specifications để lấy category_id
+//                         'name'          => $r->specification_name,
+//                         'data_type'     => $r->data_type,
+//                         'unit'          => $r->unit,
+//                         'description'   => $r->specification_description,
+//                         'created_at'    => $r->specification_created_at,
+//                         'updated_at'    => $r->specification_updated_at,
+//                     ],
+//                     'spec_options'  => null, // Mặc định là null
+//                 ];
+
+//                 if ($r->option_id !== null) {
+//                     $specValue['spec_options'] = [
+//                         'id'            => $r->option_id,
+//                         'spec_id'       => $r->spec_id, // Lấy spec_id từ SpecValue
+//                         'value'         => $r->spec_option_value,
+//                         'created_at'    => $r->spec_option_created_at,
+//                         'updated_at'    => $r->spec_option_updated_at,
+//                     ];
+//                 }
+//                 $variantsMap[$variantId]['variant_spec_values'][] = $specValue;
+//             }
+//         }
+
+//         // Tính toán full_name cho từng variant (logic này vẫn giữ nguyên vì nó đã tốt)
+//         foreach ($variantsMap as $variantId => &$variantData) { // Dùng & để sửa đổi trực tiếp trong map
+//             $baseName = $variantData['product_name'];
+//             $specValuesParts = collect($variantData['variant_spec_values'])
+//                 ->filter(function ($specValue) {
+//                     $specName = $specValue['specification']['name'] ?? '';
+//                     return in_array($specName, ['Màu sắc', 'RAM', 'Dung lượng bộ nhớ']);
+//                 })
+//                 ->sortBy(function ($specValue) {
+//                     $specName = $specValue['specification']['name'] ?? '';
+//                     $order = ['Màu sắc' => 1, 'RAM' => 2, 'Dung lượng bộ nhớ' => 3];
+//                     return $order[$specName] ?? 99;
+//                 })
+//                 ->map(function ($specValue) {
+//                     $value = null;
+//                     switch ($specValue['specification']['data_type']) {
+//                         case 'int':
+//                             $value = $specValue['value_int'];
+//                             break;
+//                         case 'decimal':
+//                             $value = $specValue['value_decimal'];
+//                             break;
+//                         case 'text':
+//                             $value = $specValue['value_text'];
+//                             break;
+//                         case 'option':
+//                             $value = $specValue['spec_options']['value'] ?? null;
+//                             break;
+//                     }
+
+//                     if ($value === null) return null; // Bỏ qua giá trị null
+
+//                     // Thêm đơn vị 'GB' cho RAM/Dung lượng bộ nhớ
+//                     if (($specValue['specification']['name'] === 'RAM' || $specValue['specification']['name'] === 'Dung lượng bộ nhớ') && is_numeric($value)) {
+//                         return $value . ' GB';
+//                     }
+//                     return $value;
+//                 })
+//                 ->filter() // Lọc bỏ các giá trị null/empty sau map
+//                 ->implode(' - ');
+
+//             $variantData['full_name'] = $baseName . ($specValuesParts ? ' - ' . $specValuesParts : '');
+
+//             // Xóa product_name khỏi variant nếu bạn không muốn nó hiển thị trực tiếp
+//             unset($variantData['product_name']);
+//         }
+
+
+//         // Debugging variantsMap
+//         // Log::info('Processed Variants Map:', $variantsMap);
+
+
+//         // Đính variants, brand & category vào products
+//         $collection = collect($products)->map(function($p) use($variantsMap) {
+//             $p->brand = [
+//                 'id'   => $p->brand_id,
+//                 'name' => $p->brand_name,
+//                 'slug' => $p->brand_slug,
+//             ];
+//             $p->category = [
+//                 'id'       => $p->cat_id,
+//                 'name'     => $p->category_name,
+//                 'slug'     => $p->categorySlug,
+//                 'id_parent' => $p->category_parent_id, // Thêm id_parent vào category
+//             ];
+
+//             // Filter variants that belong to the current product
+//             $p->variants = collect($variantsMap)
+//                             ->filter(fn($v) => (int)($v['product_id'] ?? null) === (int)$p->id)
+//                             ->values() // Re-index the array after filtering
+//                             ->all();
+
+//             // Xóa các trường không cần thiết ở cấp độ Product sau khi đã chuyển vào các object con
+//             unset(
+//                 $p->brand_id,
+//                 $p->brand_name,
+//                 $p->brand_slug,
+//                 $p->cat_id,
+//                 $p->category_name,
+//                 $p->categorySlug,
+//                 $p->category_parent_id // Xóa cả cái này sau khi đã gắn vào category object
+//             );
+
+//             return $p;
+//         });
+
+//         // Debugging final collection
+//         // Log::info('Final Product Collection:', $collection->toArray());
+
+
+//         return $collection;
+//     }
+
 
 
     public function update(string $slug, array $data)
@@ -689,6 +1234,14 @@ SQL
         if (isset($validated['name']) && $validated['name'] !== $product->name) {
             $validated['slug'] = SlugService::createSlug($validated['name'], Product::class);
         }
+            // Nếu category thay đổi → xoá cache cả cat_id cũ và mới
+    if (isset($validated['cat_id']) && $validated['cat_id'] !== $product->cat_id) {
+        Cache::forget("products_by_cat_{$product->cat_id}");
+        Cache::forget("products_by_cat_{$validated['cat_id']}");
+    } else {
+        // Nếu không đổi category, vẫn cần xoá cache hiện tại
+        Cache::forget("products_by_cat_{$product->cat_id}");
+    }
 
         $product->update($validated);
         return $product;
@@ -697,6 +1250,7 @@ SQL
     public function delete(string $slug)
     {
         $product = Product::where('slug', $slug)->firstOrFail();
+        Cache::forget("products_by_cat_{$product->cat_id}");
         return $product->delete();
     }
 }

@@ -193,7 +193,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     { name: "Sản phẩm", icon: <Package size={20} />, href: "/admin/products" },
     { name: "Đơn mua hàng", icon: <Sliders size={20} />, href: "/admin/orders" },
     { name: "Nhà cung cấp", icon: <MapPin size={20} />, href: "/admin/suppliers" },
-    { name: "Đơn nhập hàng", icon: <Settings size={20} />, href: "/admin/purchase_orders" },
+    { name: "Đơn thu mua", icon: <Settings size={20} />, href: "/admin/purchase_orders" },
 
     { name: "Phiếu nhập hàng", icon: <FileText size={20} />, href: "/admin/grns" },
     { name: "Quản lý giá", icon: <Sliders size={20} />, href: "/admin/bulk-price-update" },

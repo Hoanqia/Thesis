@@ -13,19 +13,21 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('product_summaries', function (Blueprint $table) {
+        Schema::create('variant_summaries', function (Blueprint $table) {
             $table->id();
-
-            $table->unsignedBigInteger('product_id')->unique();
+            $table->unsignedBigInteger('variant_id')->unique(); // Unique key is variant_id
+            $table->foreign('variant_id')->references('id')->on('product_variants')->onDelete('cascade');
+            $table->unsignedBigInteger('product_id');
             $table->foreign('product_id')->references('id')->on('products')->onDelete('cascade');
 
             $table->string('name', 255);
             $table->string('slug', 255)->unique();
             $table->string('image_url', 500)->nullable();
-            $table->decimal('price', 10, 2)->nullable();
-            $table->decimal('discount', 10, 2)->nullable();
+            $table->decimal('price', 13, 2)->nullable();
+            $table->decimal('discount', 13, 2)->nullable();
 
             $table->string('brand_name', 255)->nullable();
+            $table->foreignId('cat_id')->constrained('categories');
             $table->string('category_name', 255)->nullable();
 
             $table->unsignedInteger('reviews_count')->default(0);
@@ -34,7 +36,7 @@ return new class extends Migration
             $table->json('denormalized_specs')->nullable();
 
             $table->boolean('is_featured')->default(false);
-            $table->string('status', 50)->default('active');
+            $table->boolean('status')->default(true);
             
             $table->index('slug');
             $table->index('brand_name');
@@ -52,6 +54,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('product_summaries');
+        Schema::dropIfExists('variant_summaries');
     }
 };

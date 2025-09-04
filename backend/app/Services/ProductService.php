@@ -928,6 +928,137 @@ SQL
         ];
     }
 
+
+
+// /**
+//  * Lấy danh sách sản phẩm theo ID danh mục với phân trang, sử dụng dữ liệu denormalized.
+//  * Trả về dữ liệu sản phẩm theo cấu trúc Collection đã có, nhưng được bao bọc bởi thông tin phân trang.
+//  *
+//  * @param int $catId ID của danh mục.
+//  * @param int $limit Số sản phẩm trên mỗi trang (mặc định 20).
+//  * @param int $page Số trang hiện tại (mặc định 1).
+//  * @return array Trả về mảng chứa 'data' (Collection sản phẩm) và các thông tin phân trang.
+//  */
+// public function getProductsByCatIdNoCache(int $catId, int $limit = 20, int $page = 1): array
+// {
+//     // Tính toán OFFSET
+//     $offset = ($page - 1) * $limit;
+
+//     // --- Bước 1: Lấy tổng số sản phẩm cho danh mục để tính toán phân trang ---
+//     // Chỉ cần COUNT DISTINCT product_id từ bảng variant_summaries
+//     $totalProducts = DB::table('variant_summaries')
+//                         ->where('cat_id', $catId)
+//                         ->distinct('product_id')
+//                         ->count('product_id');
+
+//     // Nếu không có sản phẩm nào, trả về mảng rỗng
+//     if ($totalProducts === 0) {
+//         return [
+//             'data' => collect(),
+//             'meta' => [
+//                 'total' => 0,
+//                 'per_page' => $limit,
+//                 'current_page' => $page,
+//                 'last_page' => 0,
+//                 'from' => null,
+//                 'to' => null,
+//             ]
+//         ];
+//     }
+    
+//     // --- Bước 2: Lấy danh sách ID sản phẩm cho trang hiện tại ---
+//     $productIdsForPage = DB::table('variant_summaries')
+//                             ->where('cat_id', $catId)
+//                             ->select('product_id')
+//                             ->distinct()
+//                             ->orderBy('product_id') // Đảm bảo thứ tự ổn định khi phân trang
+//                             ->limit($limit)
+//                             ->offset($offset)
+//                             ->get()
+//                             ->pluck('product_id')
+//                             ->all();
+    
+//     // Nếu không có sản phẩm nào trên trang này
+//     if (empty($productIdsForPage)) {
+//         return [
+//             'data' => collect(),
+//             'meta' => [
+//                 'total' => $totalProducts,
+//                 'per_page' => $limit,
+//                 'current_page' => $page,
+//                 'last_page' => ceil($totalProducts / $limit),
+//                 'from' => null,
+//                 'to' => null,
+//             ]
+//         ];
+//     }
+
+//     // --- Bước 3: Lấy tất cả các variants cho các sản phẩm đã được phân trang ---
+//     $variantsData = DB::table('variant_summaries')
+//                         ->whereIn('product_id', $productIdsForPage)
+//                         ->orderBy('product_id')
+//                         ->get()
+//                         ->groupBy('product_id'); // Nhóm variants theo product_id
+
+//     // --- Bước 4: Tạo cấu trúc dữ liệu mong muốn trong PHP ---
+//     $productsCollection = collect();
+//     foreach ($productIdsForPage as $productId) {
+//         $variants = $variantsData[$productId] ?? collect();
+//         if ($variants->isEmpty()) continue;
+
+//         // Lấy thông tin chung của sản phẩm từ một variant bất kỳ
+//         $firstVariant = $variants->first();
+//         $product = [
+//             'id' => $firstVariant->product_id,
+//             'name' => $firstVariant->name,
+//             'slug' => $firstVariant->slug,
+//             'description' => null, // Không có trong variant_summaries
+//             'is_featured' => $firstVariant->is_featured,
+//             'status' => $firstVariant->status,
+//             'reviews_count' => $firstVariant->reviews_count,
+//             'reviews_avg_rate' => $firstVariant->reviews_avg_rate,
+//             'category' => [
+//                 'id' => $firstVariant->cat_id,
+//                 'name' => $firstVariant->category_name,
+//                 'slug' => $firstVariant->slug,
+//                 'id_parent' => null, // Không có trong variant_summaries
+//             ],
+//             'brand' => [
+//                 'id' => null, // Không có trong variant_summaries
+//                 'name' => $firstVariant->brand_name,
+//                 'slug' => null, // Không có trong variant_summaries
+//             ],
+//             'variants' => $variants->map(function($v) {
+//                 // Xử lý denormalized_specs
+//                 $specs = json_decode($v->denormalized_specs, true);
+//                 $v->denormalized_specs = $specs;
+//                 $v->image_url = asset('storage/' . $v->image_url);
+
+//                 return $v;
+//             })->values()->all(),
+//         ];
+//         $productsCollection->push($product);
+//     }
+
+//     // Tính toán thông tin phân trang
+//     $lastPage = ceil($totalProducts / $limit);
+//     $from = ($productsCollection->isEmpty()) ? null : $offset + 1;
+//     $to = ($productsCollection->isEmpty()) ? null : $offset + $productsCollection->count();
+
+//     return [
+//         'data' => $productsCollection,
+//         'meta' => [
+//             'total' => $totalProducts,
+//             'per_page' => $limit,
+//             'current_page' => $page,
+//             'last_page' => (int) $lastPage,
+//             'from' => $from,
+//             'to' => $to,
+//         ]
+//     ];
+// }
+
+
     /**
      * Lấy danh sách sản phẩm theo ID danh mục với phân trang và cache.
      * Lưu ý: Caching một hàm có tham số limit/page đòi hỏi key cache phức tạp hơn.

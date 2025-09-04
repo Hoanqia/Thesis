@@ -3,6 +3,7 @@
 This is a robust e-commerce platform for an electronics store, built as a thesis project. The application showcases advanced features in secure authentication, efficient inventory management, and modern payment integration, providing a complete and scalable solution for online retail.
 
 ✨ **Key Features**
+
     **Authentication & Authorization**: Utilizes JWT and OAuth2 for a secure user login experience. Access to resources is managed by a fine-grained Role-Based Access Control (RBAC) system.
 
     **Inventory Management** : Implements a highly efficient First-In, First-Out (FIFO) stock management system to ensure accurate and timely inventory updates.

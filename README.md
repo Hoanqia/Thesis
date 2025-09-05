@@ -20,3 +20,28 @@ This is a robust e-commerce platform for an electronics store, built as a thesis
 - **Backend**: PHP, Laravel framework, REST API
 
 - **Database**: MySQL
+
+🚀 **Installation & Setup**
+    **Prerequisites:
+    - PHP 8.x or higher
+    - Composer
+    - XAMPP MySQL 
+    - Node.js and npm
+    Steps to Install:
+     1. Clone the repository
+        git clone https://github.com/Hoanqia/Thesis.git
+        cd thesis
+
+     2.Backend (Laravel)
+        cd backend
+        composer install
+        cp .env.example .env
+        php artisan key:generate
+        php artisan migrate
+        php artisan serve
+
+     3. Frontend (ReactJS Next.js):
+        cd frontend
+        npm install 
+        npm run dev
+

@@ -28,15 +28,17 @@ This is a robust e-commerce platform for an electronics store, built as a thesis
     cd Thesis
 
 2. Backend (Laravel)
-    cd backend
-    omposer install
-    cp .env.example .env
-    php artisan key:generate
-    php artisan migrate
-    php artisan serve &
-
+```bash
+cd backend
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate
+php artisan serve &
+```
  3. Frontend (ReactJS Next.js)
-    cd ../frontend
-    npm install
-    npm run dev
-
+ ```bash
+cd ../frontend
+npm install
+npm run dev
+```

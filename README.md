@@ -21,21 +21,21 @@ This is a robust e-commerce platform for an electronics store, built as a thesis
 
 - **Database**: MySQL
 
- 🚀 **Installation & Setup**
+🚀 **Installation & Setup**
 
- 1️⃣ Clone the repository
+1. Clone the repository
     git clone https://github.com/Hoanqia/Thesis.git
     cd Thesis
 
- 2️⃣ Backend (Laravel)
+2. Backend (Laravel)
     cd backend
-    composer install
+    omposer install
     cp .env.example .env
     php artisan key:generate
     php artisan migrate
     php artisan serve &
 
- 3️⃣ Frontend (ReactJS Next.js)
+ 3. Frontend (ReactJS Next.js)
     cd ../frontend
     npm install
     npm run dev
